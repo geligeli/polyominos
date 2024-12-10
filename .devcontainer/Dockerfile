@@ -4,6 +4,10 @@ RUN apt-get update
 RUN apt install gdb sudo -y
 RUN apt install libtbb-dev -y
 RUN apt install git -y
+RUN apt install clangd -y
+RUN apt install linux-perf -y
+RUN apt install libbenchmark-dev -y
+
 
 ARG uid=1000
 ARG user=geli

@@ -1,0 +1,4 @@
+*.o
+*.pch
+puzzle_maker
+bench
