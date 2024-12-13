@@ -40,3 +40,13 @@ cc_binary(
         "@google_benchmark//:benchmark",
     ],
 )
+
+cc_binary(
+    name = "avx_match_test",
+    srcs = [
+        "avx_match_test.cpp",
+    ],
+    deps = [
+        "@googletest//:gtest_main",
+    ],
+)
