@@ -371,8 +371,9 @@ int main() {
   std::atomic<int64_t> puzzle_configs = 0;
 
   std::atomic<int> numBoardsSolved = 0;
+  const auto &kBoards = PrecomputedPolyminosSet<16>::polyminos();
   PeriodicLogger log([&]() {
-    std::cout << "\rBoards solved: " << numBoardsSolved << std::flush;
+    std::cout << "\rBoards solved: " << numBoardsSolved << " of " << kBoards.size() << std::flush;
   });
 
   auto puzzle_configuration_visitor = [&]<int N, PolyominoConcept... Tiles>(
@@ -433,8 +434,8 @@ int main() {
     ForAllPartitions(board, puzzle_configuration_visitor);
   };
 
-  const auto &kBoards = PrecomputedPolyminosSet<16>::polyminos();
-  std::for_each(std::execution::par_unseq, kBoards.begin(), kBoards.end(),
+  
+  std::for_each(std::execution::par_unseq, kBoards.rbegin(), kBoards.rend(),
                 visitor);
 
   std::cout << "\nPuzzles solved=" << puzzle_configs << "\n";

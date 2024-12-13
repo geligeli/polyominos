@@ -8,7 +8,9 @@
                 "GitHub.copilot-chat",
                 "GitHub.copilot",
                 "ms-vscode.cpptools",
-                "llvm-vs-code-extensions.vscode-clangd"
+                "llvm-vs-code-extensions.vscode-clangd",
+                "BazelBuild.vscode-bazel",
+                "StackBuild.bazel-stack-vscode-cc"
             ]
         }
     },

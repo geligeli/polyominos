@@ -84,7 +84,7 @@ TimingLogger::TimingLogger() {
       m_cv.wait_for(lk, std::chrono::seconds(10),
                     [&st]() { return st.stop_requested(); });
       auto s = logStringLocked();
-      write(1, s.c_str(), s.size());
+      (void)write(1, s.c_str(), s.size());
     }
   });
 }

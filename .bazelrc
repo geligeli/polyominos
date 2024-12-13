@@ -1,0 +1,4 @@
+
+build --cxxopt=-std=c++20
+build --linkopt=-ltbb
+build --copt=-O3 --copt=-ffast-math --copt=-march=native --copt=-DNDEBUG --copt=-flto
