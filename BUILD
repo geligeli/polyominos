@@ -30,14 +30,16 @@ cc_binary(
     ],
 )
 
-cc_binary(
-    name = "bench",
+cc_library(
+    name = "avx_match",
+    hdrs = [
+        "avx_match.hpp",
+    ],
     srcs = [
-        "bench.cpp",
+        "avx_match.cpp",
     ],
     deps = [
         ":polyominos",
-        "@google_benchmark//:benchmark",
     ],
 )
 
@@ -47,6 +49,20 @@ cc_binary(
         "avx_match_test.cpp",
     ],
     deps = [
+        ":polyominos",
+        ":avx_match",
         "@googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "bench",
+    srcs = [
+        "bench.cpp",
+    ],
+    deps = [
+        ":avx_match",
+        ":polyominos",
+        "@google_benchmark//:benchmark",
     ],
 )

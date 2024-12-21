@@ -73,9 +73,12 @@
     "C_Cpp.intelliSenseEngine": "disabled",
     "clangd.arguments": [
         "--background-index",
+        "--compile-commands-dir=${workspaceFolder}",
+        "--header-insertion=never",
+        // "--query-driver=**",
     ],
     "C_Cpp.default.compilerPath": "/usr/bin/clang++",
     "C_Cpp.default.cppStandard": "c++20",
     "clangd.onConfigChanged": "restart",
-    "editor.inlayHints.enabled": "off"
+    "editor.inlayHints.enabled": "off",
 }

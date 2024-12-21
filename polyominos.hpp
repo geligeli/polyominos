@@ -8,6 +8,7 @@
 #include <cstring>
 #include <execution>
 #include <functional>
+#include <initializer_list>
 #include <numeric>
 #include <optional>
 #include <set>
@@ -16,8 +17,8 @@
 #include <utility>
 #include <vector>
 
-template <int N> struct alignas(64) Polyomino {
-  static inline constexpr int size = N;
+template <std::size_t N> struct Polyomino {
+  static inline constexpr std::size_t size = N;
   std::array<std::pair<int8_t, int8_t>, N> xy_cords;
 
   inline constexpr Polyomino rotate_90() const noexcept {
@@ -193,7 +194,7 @@ template <int N> struct alignas(64) Polyomino {
 };
 
 // Custom specialization of std::hash can be injected in namespace std.
-template <int N> struct std::hash<Polyomino<N>> {
+template <std::size_t N> struct std::hash<Polyomino<N>> {
   inline std::size_t operator()(const Polyomino<N> &s) const noexcept {
     char buffer[2 * N];
     std::memcpy(buffer, s.xy_cords.data(), 2 * N);
@@ -201,7 +202,7 @@ template <int N> struct std::hash<Polyomino<N>> {
   }
 };
 
-template <int N>
+template <std::size_t N>
 std::vector<Polyomino<N + 1>>
 get_next_gen(const std::vector<Polyomino<N>> &shapes) noexcept {
   std::vector<Polyomino<N + 1>> result;
@@ -228,7 +229,7 @@ get_next_gen(const std::vector<Polyomino<N>> &shapes) noexcept {
   return result;
 }
 
-template <int NUM, int N>
+template <int NUM, std::size_t N>
 void print_count(std::vector<Polyomino<N>> &&start) noexcept {
   std::cout << "Number of " << N << "-ominoes: " << start.size() << std::endl;
   if constexpr (NUM == 1) {
@@ -239,12 +240,12 @@ void print_count(std::vector<Polyomino<N>> &&start) noexcept {
 }
 
 template <typename T> struct IsPolyomino : std::false_type {};
-template <int N> struct IsPolyomino<Polyomino<N>> : std::true_type {};
+template <std::size_t N> struct IsPolyomino<Polyomino<N>> : std::true_type {};
 
 template <typename T>
 concept PolyominoConcept = IsPolyomino<std::remove_cvref_t<T>>::value;
 
-template <int N, int K>
+template <std::size_t N, std::size_t K>
 __attribute__((always_inline)) inline constexpr int64_t
 TileFitBitMask(const Polyomino<N> &board, const Polyomino<K> &tile, int8_t dx,
                int8_t dy) noexcept {
@@ -269,13 +270,11 @@ TileFitBitMask(const Polyomino<N> &board, const Polyomino<K> &tile, int8_t dx,
   return (num_matches == K) ? result : 0;
 }
 
-template <int N, int K>
+template <std::size_t N, std::size_t K>
 inline std::vector<int64_t>
 FindMatchPatterns(const Polyomino<N> &board,
                   const Polyomino<K> &tile) noexcept {
   static_assert(N > K);
-  static auto matchTimer = TimingLogger::instance().getTimer("FindMatchPatterns");
-  matchTimer.tic();
   std::vector<int64_t> tile_masks;
   const auto [x_max, y_max] = board.max_xy();
   for (const auto t : tile.symmetries()) {
@@ -291,11 +290,10 @@ FindMatchPatterns(const Polyomino<N> &board,
   std::sort(tile_masks.begin(), tile_masks.end());
   tile_masks.erase(std::unique(tile_masks.begin(), tile_masks.end()),
                    tile_masks.end());
-  matchTimer.toc();
   return tile_masks;
 }
 
-template <int N>
+template <std::size_t N>
 inline std::vector<int64_t>
 FindMatchPatterns([[maybe_unused]] const Polyomino<N> &board,
                   [[maybe_unused]] const Polyomino<1> &tile) noexcept {
