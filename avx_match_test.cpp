@@ -99,9 +99,9 @@ TEST(AVXTest, FindMatches_avx512_16x16_512) {
   // __m512i result, result2;
   __m512i result;
   
-  alignas(64) char result_ptrs[8192];
-  _find_matches_avx512_16x16(board_bm, candidate_bm, result, result_ptrs);
-  std::cout << BitmaskToString(result) << std::endl;
+  alignas(64) __m256i resultsPtrs[256];
+  _find_matches_avx512_16x16(board_bm, candidate_bm, result, &resultsPtrs[0]);
+  std::cout << BitmaskToString(resultsPtrs[0]) << std::endl;
 }
 
 // TEST(AVXTest, BitMaskFailedBackCovnersion) {
