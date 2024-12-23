@@ -60,7 +60,9 @@ std::string BitmaskToString(const __m256i &bitmask) {
   constexpr int kNCols = 16 + 1;
   std::string out_buffer(16 * kNCols, ' ');
   // 17 columns
-  auto at_xy = [&](int x, int y) -> char & { return out_buffer[y * kNCols + x]; };
+  auto at_xy = [&](int x, int y) -> char & {
+    return out_buffer[y * kNCols + x];
+  };
   auto at_xy_grid = [&](int x, int y) -> char & { return at_xy(x, y); };
   auto at_xy_bitmask = [&](int x, int y) -> bool {
     const auto bit_index = y * 16 + x;
@@ -78,258 +80,86 @@ std::string BitmaskToString(const __m256i &bitmask) {
   return out_buffer;
 };
 
-// alignas(64) const uint16_t idx_array32[32] = {
-//     0, 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-//     0, 16, 17, 18, 19, 20, 21, 22, 23, 23, 25, 26, 27, 28, 29, 30};
+static const __m512i initial_permute =
+    _mm512_set_epi16(14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 15,
+                     14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+static const __m512i shift_down =
+    _mm512_set_epi16(14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 14,
+                     13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0);
 
-// alignas(64) const uint64_t swap_boards_array[8] = {4, 5, 6, 7, 0, 1, 2, 3};
-
-
-static const __m512i initial_permute = _mm512_set_epi16(14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-static const __m512i initial_clone = _mm512_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+static const __m512i initial_clone =
+    _mm512_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 15,
+                     14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
 
 // RDI, RSI, RDX, RCX, R8, R9
-void _find_matches_avx512_16x16(__m256i const &board, __m256i const &candidate,
-                                __m512i &result , void* result_ptr) {
-std::cout << result_ptr << std::endl;
+int _find_matches_avx512_16x16(__m256i const &board, __m256i const &candidate,
+                               int candidate_width, int candidate_height,
+                               __m256i *result_ptr) {
 
-  // __m512i initial_permute = _mm512_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
-  //                                            15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-  // int b=123;
+  int num_outer_loops = 16 - candidate_height;
+  int num_inner_loops = (16 - candidate_width) / 2;
+
+  auto start = result_ptr;
+
   asm volatile(
       R"(
     // zmm0 board
-    // zmm1 candidate
+    // zmm1 candidate for inner loop
     // zmm2 matching mask
-    // r9 = number of results
-    // rcx, r8 = loop counters
+    // zmm3 candidate for outer loop
+    // rcx = loop counters
 
     VMOVDQA64 ymm0, [%[board]]
     VMOVDQA64 ymm1, [%[candidate]]
-    // VPERMW %[result] %{%[initial_permuate_mask]}%{z}, %[initial_permute], zmm0
-    VPERMW zmm0 %{%[initial_permuate_mask]}%{z}, %[initial_permute], zmm0
+
+    VPERMW zmm0, %[initial_clone], zmm0
     VPERMW zmm1, %[initial_clone], zmm1
     VPSLLW zmm1 %{%[initial_shift_mask]}, zmm1, 1
+    VMOVDQA64 zmm3, zmm1
 
-    XOR r9, r9
-    MOV r8, 8
 .outer_loop%=:
     // Inner loop
-    MOV ecx, 8
+    MOV ecx, %[num_inner_loops]
   .inner_loop%=:
-    VPTERNLOGD zmm2, zmm1, zmm0, 0x22
+    VPTERNLOGD zmm2, zmm1, zmm0, 0x44
     VPTESTMQ k1, zmm2, zmm2
-    KTESTB k1, %[lower_4_bits_mask]
 
+    KTESTB %[lower_4_bits_mask], k1
     // ZF is set if board has a match
     // zmm1[255:0] is fit
+    // CF is set if flipped board has a match
+    // zmm1[511:256] is fit
+    JA .end_second_result%=
     JNZ .end_first_result%=
-      // int 3
-      VMOVDQA64 [%[result_ptr]] {%[lower_4_bits_mask]}, zmm1
+      VMOVDQU64 [%[result_ptr]] {%[lower_4_bits_mask]}, zmm1
       ADD %[result_ptr], 32
     .end_first_result%=:
 
-    // CF is set if flipped board has a match
-    // zmm1[511:256] is fit
-    JAE .end_second_result%=
-      VMOVDQA64 [%[result_ptr]-32] {%[upper_4_bits_mask]}, zmm1
+      VMOVDQU64 [%[result_ptr]-32] {%[upper_4_bits_mask]}, zmm1
       ADD %[result_ptr], 32
     .end_second_result%=:
+
     VPSLLW zmm1, zmm1, 2
   LOOP .inner_loop%=
-
-    VPERMW zmm1 %{%[down_shift_permutation_mask]}%{z}, %[initial_permute], zmm1
-    dec r8
+    VPERMW zmm3 %{%[down_shift_permutation_mask]}%{z}, %[shift_down], zmm3
+    VMOVDQA64 zmm1, zmm3
+    dec %[num_outer_loops]
 jnz .outer_loop%=
-
-    VMOVDQA64 %[result], zmm3
-
-
-   )" :[result] "=v"(result),
-       [result_ptr] "+r" (result_ptr)
-      :
-      [board] "r" (&board),
-      [candidate] "r"(&candidate),
-      [initial_permute] "v" (initial_permute),
-      [initial_clone] "v" (initial_clone),
-           [initial_permuate_mask] "Yk" (0b11111111111111101111111111111111),
-      [down_shift_permutation_mask] "Yk"(0b11111111111111101111111111111110),
-              [initial_shift_mask] "Yk" (0b11111111111111110000000000000000),
-      [lower_4_bits_mask] "Yk"(0b00001111),
-      [upper_4_bits_mask] "Yk"(0b11110000)
-      
+   )"
+      : [result_ptr] "+r"(result_ptr)
+      : [num_inner_loops] "g"(num_inner_loops),
+        [num_outer_loops] "r"(num_outer_loops), [board] "r"(&board),
+        [candidate] "r"(&candidate), [initial_permute] "v"(initial_permute),
+        [shift_down] "v"(shift_down), [initial_clone] "v"(initial_clone),
+        [initial_permuate_mask] "Yk"(0b11111111111111101111111111111111),
+        [down_shift_permutation_mask] "Yk"(0b11111111111111101111111111111110),
+        [initial_shift_mask] "Yk"(0b11111111111111110000000000000000),
+        [lower_4_bits_mask] "Yk"(0b00001111),
+        [upper_4_bits_mask] "Yk"(0b11110000)
 
       // [permutation_mask] "Yk"(0b11111111111111101111111111111110),
       // [bit_extract_mask] "Yk"(0b00001111), [idx_array32] "v"(idx_array32),
       // [swap_boards_array] "r"(swap_boards_array)
-      : "zmm0", "zmm1", "zmm2", "k1", "rcx", "r8", "r9", "memory"
-      );
-  std::cout << result_ptr << std::endl;
+      : "zmm0", "zmm1", "zmm2", "zmm3", "k1", "cc", "rcx", "memory");
+  return result_ptr - start;
 }
-
-/*
-//  ZMM0 is the shifted candidate
-//  ZMM1 is the intersecion mask for board and candidate
-
-     VPERMQ %[board_and_board_flipped], zmm28, %[board_and_board_flipped]
-     board_and_board_flipped
-     VPTESTMB k2,
-     VMOVDQA64 zmm28, [%[swap_boards_array]]
-     mov rdx, %[result]
-      ebx, r9
- .second_rount%=:
-     xor eax, eax // 32 bit line result = 2x16 bit
-     xor r10, r10
- .start%=:
-     // generate masks for the candidate
-     vmovdqa64 ZMM0, %[candidate_12]
-     mov r12, 17
-     mov ECX, 16
-     .pattern_gen%=:
-     VPTERNLOGD ZMM1, ZMM0, %[board_and_board_flipped] 0b00100010
-     VPTESTMQ k1, ZMM1, ZMM1
-     KTESTB k1, %[bit_extract_mask]
-     // ZF is set if board has a match
-     // CF is set if flipped board has a match
-     VPSLLW ZMM0, ZMM0, 2
-     LOOP .pattern_gen%=
-     // shift pattern 1 row down
-     VPERMW %[candidate_12] %{%[permutation_mask]}%{z}, %[idx_array32],
-%[candidate_12] mov [rdx], eax add rdx, 4 inc r10 cmp r10, 16 jne .start%= cmp
-r9, 1 je .end%= VPERMQ %[board_and_board_flipped], zmm28,
-%[board_and_board_flipped] mov rdx, %[result2] mov r9, 1 jmp .second_rount%=
- .end%=:
-*/
-
-/*
-void _find_matches_avx512_16x16_512(__m256i const& board,
-                                    __m256i const& candidate,
-                                    __m512i &result, __m512i &result2) {
-  asm volatile(R"(
-//  ZMM0 is the shifted candidate
-//  ZMM1 is the intersecion mask for board and candidate
-
-    VPERMQ %[board_and_board_flipped], zmm28, %[board_and_board_flipped]
-    board_and_board_flipped
-    VPTESTMB k2,
-    VMOVDQA64 zmm28, [%[swap_boards_array]]
-    mov rdx, %[result]
-     ebx, r9
-.second_rount%=:
-    xor eax, eax // 32 bit line result = 2x16 bit
-    xor r10, r10
-.start%=:
-    // generate masks for the candidate
-    vmovdqa64 ZMM0, %[candidate_12]
-    mov r12, 17
-
-
-    mov ECX, 16
-    .pattern_gen%=:
-    VPTERNLOGD ZMM1, ZMM0, %[board_and_board_flipped] 0b00100010
-    VPTESTMQ k1, ZMM1, ZMM1
-    KTESTB k1, %[bit_extract_mask]
-
-    // ZF is set if board has a match
-    // CF is set if flipped board has a match
-
-    VPSLLW ZMM0, ZMM0, 2
-    LOOP .pattern_gen%=
-
-    // shift pattern 1 row down
-    VPERMW %[candidate_12] %{%[permutation_mask]}%{z}, %[idx_array32],
-%[candidate_12] mov [rdx], eax add rdx, 4 inc r10 cmp r10, 16 jne .start%=
-
-    cmp r9, 1
-    je .end%=
-
-    VPERMQ %[board_and_board_flipped], zmm28, %[board_and_board_flipped]
-    mov rdx, %[result2]
-    mov r9, 1
-    jmp .second_rount%=
-.end%=:
-  )"
-               : [result] "+v"(result), [result2] "+v"(result2)
-               :
-                 [board] "v"(board),
-                 [candidate_12] "v"(candidate_12),
-                 [permutation_mask] "Yk"(0b11111111111111101111111111111110),
-                 [bit_extract_mask] "Yk"(0b00001111),
-                 [idx_array32] "v"(idx_array32),
-                 [swap_boards_array] "r"(swap_boards_array)
-               :
-                  "eax",
-                  "k1", "memory");
-}
-*/
-
-//   asm volatile(R"(
-// //  ZMM0 is the shifted candidate
-// //  ZMM1 is the intersecion mask for board and candidate
-
-//     VPERMQ %[board_and_board_flipped], zmm28, %[board_and_board_flipped]
-//     board_and_board_flipped
-//     VPTESTMB k2,
-//     VMOVDQA64 zmm28, [%[swap_boards_array]]
-//     mov rdx, %[result]
-//      ebx, r9
-// .second_rount%=:
-//     xor eax, eax // 32 bit line result = 2x16 bit
-//     xor r10, r10
-// .start%=:
-//     // generate masks for the candidate
-//     vmovdqa64 ZMM0, %[candidate_12]
-//     mov r12, 17
-
-//     mov ECX, 16
-//     .pattern_gen%=:
-//     VPTERNLOGD ZMM1, ZMM0, %[board_and_board_flipped] 0b00100010
-//     VPTESTMQ k1, ZMM1, ZMM1
-//     KTESTB k1, %[bit_extract_mask]
-
-//     // ZF is set if board has a match
-//     // CF is set if flipped board has a match
-
-//     VPSLLW ZMM0, ZMM0, 2
-//     LOOP .pattern_gen%=
-
-//     // shift pattern 1 row down
-//     VPERMW %[candidate_12] %{%[permutation_mask]}%{z}, %[idx_array32],
-//     %[candidate_12] mov [rdx], eax add rdx, 4 inc r10 cmp r10, 16 jne
-//     .start%=
-
-//     cmp r9, 1
-//     je .end%=
-
-//     VPERMQ %[board_and_board_flipped], zmm28, %[board_and_board_flipped]
-//     mov rdx, %[result2]
-//     mov r9, 1
-//     jmp .second_rount%=
-// .end%=:
-//   )"
-//                : [result] "+v"(result), [result2] "+v"(result2)
-//                :
-//                  [board] "v"(board),
-//                  [candidate_12] "v"(candidate_12),
-//                  [permutation_mask] "Yk"(0b11111111111111101111111111111110),
-//                  [bit_extract_mask] "Yk"(0b00001111),
-//                  [idx_array32] "v"(idx_array32),
-//                  [swap_boards_array] "r"(swap_boards_array)
-//                :
-//               //  "zmm0", "zmm1", "zmm2", "zmm3", "zmm4", "zmm5", "zmm6",
-//               "zmm7",
-//               //  "zmm8", "zmm9", "zmm10", "zmm11", "zmm12", "zmm13",
-//               "zmm14",
-//               //  "zmm15", "zmm17",  "rax", "rbx",
-//               //  "rcx", "rdx", "r9", "r10", "r11", "r12", "cc",
-//                   "eax",
-//                   "k1", "memory");
-
-// VMOVDQA64 zmm31, [%[board_and_board_flipped]]
-// VMOVDQA64 zmm30, [%[candidate_12]]
-// VMOVDQA64 zmm29, [%[idx_array32]]
-// VMOVDQA64 zmm28, [%[swap_boards_array]]
-
-// RAX RBX RCX RDX  RSP RBP RDI	RSI
-//  R8–R15
-// }

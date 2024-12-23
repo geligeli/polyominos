@@ -1,9 +1,16 @@
 # CXX=clang++-19
 
-CXXFLAGS=-std=c++20 -O3 -ffast-math -march=native -DNDEBUG -flto
+CXXFLAGS=-std=c++20 -O3 -ffast-math -march=native -DNDEBUG -flto -masm=intel
 CXXPCH_FLAGS=$(CXXFLAGS)
 LDFLAGS=-ltbb
 #-Wall -Wextra -Werror -pedantic
+
+
+avx_match.o: avx_match.hpp avx_match.cpp
+	$(CXX) $(CXXFLAGS) -c avx_match.cpp avx_match.hpp
+
+avx_match_test: avx_match_test.cpp avx_match.o
+	$(CXX) $(CXXFLAGS) avx_match_test.cpp avx_match.o -o avx_match_test
 
 loggers.hpp.pch loggers.o: loggers.cpp loggers.hpp
 	$(CXX) $(CXXFLAGS) -c loggers.cpp loggers.hpp

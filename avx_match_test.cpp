@@ -6,9 +6,9 @@
 TEST(AVXTest, BoardBitMaskConversion) {
   // clang-format off
   Polyomino<7> polyomino_7 = {{
-    { {0, 0}, //{1, 0}, {2, 0}, {3, 0},
-      {0, 1}, //{1, 1}, {2, 1}, {3, 1},
-      {0, 2}, //{1, 2}, {2, 2}, {3, 2},
+    { {0, 0},
+      {0, 1},
+      {0, 2},
       {0, 3}, {1, 3}, {2, 3}, {3, 3} }
   }};
   // clang-format on
@@ -92,16 +92,35 @@ TEST(AVXTest, FindMatches_avx512_16x16_512) {
   }};
   // clang-format on
 
+  Polyomino<5> polyomino_5 = {{{
+      {0, 0},
+      {0, 1},
+      {0, 2},
+      {1, 2},
+      {2, 2},
+  }}};
+
   __m256i board_bm;
   __m256i candidate_bm;
   PolyominoToBitMask(polyomino_9, board_bm);
-  PolyominoToBitMask(polyomino_9, candidate_bm);
+  PolyominoToBitMask(polyomino_5, candidate_bm);
   // __m512i result, result2;
-  __m512i result;
-  
-  alignas(64) __m256i resultsPtrs[256];
-  _find_matches_avx512_16x16(board_bm, candidate_bm, result, &resultsPtrs[0]);
-  std::cout << BitmaskToString(resultsPtrs[0]) << std::endl;
+  // __m512i result;
+
+  const auto [x_max, y_max] = polyomino_5.max_xy();
+   __m256i resultsPtrs[256];
+  int num_matches =
+      _find_matches_avx512_16x16(board_bm, candidate_bm, x_max, y_max, resultsPtrs);
+
+  BoardCompression comp(board_bm);
+
+
+
+  for (int i = 0; i < num_matches; ++i) {
+    std::cout << BitmaskToString(resultsPtrs[i]) << std::endl;
+    std::cout << std::bitset<64>(comp.compress(resultsPtrs[i])) << std::endl;
+    
+  }
 }
 
 // TEST(AVXTest, BitMaskFailedBackCovnersion) {

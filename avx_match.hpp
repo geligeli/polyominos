@@ -17,6 +17,46 @@ void set_bit(__m256i &bitmask, int x, int y);
 bool get_bit(const __m512i &bitmask, int x, int y, bool second_grid);
 void set_bit(__m512i &bitmask, int x, int y, bool second_grid);
 
+class BoardCompression {
+public:
+  inline BoardCompression(__m256i board) {
+    asm(
+        R"(
+      VPTESTMB %[mask], %[board], %[board]
+      KMOVD %[cnt], %[mask]
+      POPCNT %[cnt], %[cnt]
+    )"
+        : [mask] "=Yk"(mask), [cnt] "=r"(cnt)
+        : [board] "v"(board)
+        :);
+    cnt = (cnt + 7) / 8;
+    std::memset(data, 0, cnt * 8);
+    _mm256_mask_compressstoreu_epi8(data, mask, board);
+    // std::cout << cnt << std::endl;
+    for (int c = 0; c < cnt; ++c) {
+      // std::cout << std::bitset<64>(data[c]) << std::endl;
+      per_entry_popcnt[c] = std::popcount(data[c]);
+    }
+  }
+
+  inline uint64_t compress(__m256i match) {
+    uint64_t tmp[4];
+    _mm256_mask_compressstoreu_epi8(tmp, mask, match);
+    uint64_t result = _pext_u64(tmp[0], data[0]);
+    for (int c = 1; c < cnt; ++c) {
+      result <<= 1;
+      result |= _pext_u64(tmp[0], data[0]);
+    }
+    return result;
+  }
+
+private:
+  __mmask32 mask;
+  int cnt;
+  int per_entry_popcnt[4];
+  uint64_t data[4];
+};
+
 struct MatchBitmask {
   __m512i bitmask_rot_0_90;
   __m512i bitmask_rot_180_270;
@@ -49,9 +89,10 @@ void PolyominoToMatchBitMask(const Polyomino<N> &p, MatchBitmask &bitmask) {
   }
 }
 
-__attribute__((noinline)) void
+int
 _find_matches_avx512_16x16(__m256i const &board, __m256i const &candidate,
-                           __m512i &result , void* result_ptrs);
+                           int candidate_width, int candidate_height,
+                           __m256i *resultsPtrs);
 
 // void _find_matches_avx512_16x16_512(__m512i const& board_and_board_flipped,
 //                                     __m512i const& candidate_12,
