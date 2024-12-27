@@ -7,6 +7,7 @@ cc_library(
 cc_library(
     name = "partition_function",
     hdrs = ["partition_function.hpp"],
+    srcs = ["partition_function.cpp"],
 )
 
 cc_library(
@@ -27,6 +28,7 @@ cc_binary(
         ":loggers",
         ":partition_function",
         ":polyominos",
+        ":avx_match",
     ],
 )
 

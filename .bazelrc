@@ -3,6 +3,16 @@ build --cxxopt=-std=c++20
 build --linkopt=-ltbb
 build --copt=-masm=intel --copt=-march=native --copt=-O3 --copt=-DNDEBUG --copt=-flto
 
+build:profile --copt=-masm=intel
+build:profile --copt=-march=native
+build:profile --copt=-O3
+build:profile --copt=-DNDEBUG
+build:profile --copt=-flto
+build:profile --copt=-gline-tables-only
+build:profile --copt=-fdebug-info-for-profiling
+build:profile --copt=-funique-internal-linkage-names
+build:profile --strip=never
+
 #  --copt=-flto
 
 build:dbg --copt=-O0 --copt=-g --copt=-fno-limit-debug-info --strip=never

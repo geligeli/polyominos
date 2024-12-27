@@ -81,6 +81,17 @@ template <std::size_t N> struct Polyomino {
     }
   }
 
+  inline constexpr std::size_t num_symmetries() const noexcept {
+    std::size_t num = 0;
+    const auto s = _align_to_positive_quadrant().sorted();
+    for (const auto &p : symmetries()) {
+      if (p._align_to_positive_quadrant().sorted() == s) {
+        ++num;
+      }
+    }
+    return num;
+  }
+
   inline constexpr Polyomino translate_xy(int8_t x, int8_t y) const noexcept {
     Polyomino result;
     for (int i = 0; i < N; ++i) {
@@ -102,7 +113,10 @@ template <std::size_t N> struct Polyomino {
   inline constexpr Polyomino sorted() const noexcept {
     Polyomino result;
     result.xy_cords = xy_cords;
-    std::sort(result.xy_cords.begin(), result.xy_cords.end());
+    std::sort(result.xy_cords.begin(), result.xy_cords.end(),
+     [](const auto &a, const auto &b) {
+       return std::make_pair(a.second, a.first) < std::make_pair(b.second, b.first);
+     });
     return result;
   }
 
@@ -140,6 +154,31 @@ template <std::size_t N> struct Polyomino {
       y_max = std::max(y_max, xy_cords[i].second);
     }
     return {x_max, y_max};
+  }
+
+  inline constexpr int bounding_box_area() const noexcept {
+    auto [x,y] = _align_to_positive_quadrant().max_xy();
+    return (x + 1) * (y + 1);
+  }
+
+  std::string string() const noexcept {
+    auto s = _align_to_positive_quadrant();
+    std::set<std::pair<int8_t, int8_t>> coord_set(s.xy_cords.begin(),
+                                                  s.xy_cords.end());
+    const auto [x_max, y_max] = s.max_xy();
+    std::stringstream ss;
+    for (int y = 0; y <= y_max; ++y) {
+      for (int x = 0; x <= x_max; ++x) {
+        if (coord_set.count({x, y})) {
+          ss << "█";
+        } else {
+          ss << "░";
+        }
+      }
+      ss << "\n";
+    }
+    ss << "\n";
+    return ss.str();
   }
 
   void print() const noexcept {
@@ -250,9 +289,6 @@ __attribute__((always_inline)) inline constexpr int64_t
 TileFitBitMask(const Polyomino<N> &board, const Polyomino<K> &tile, int8_t dx,
                int8_t dy) noexcept {
   static_assert(N > K);
-  int64_t result = 0;
-  int num_matches = 0;
-  int64_t tile_mask = 1;
 
   for (const auto &xy : tile.xy_cords) {
     if (!board.has_coord({xy.first + dx, xy.second + dy})) {
@@ -260,6 +296,9 @@ TileFitBitMask(const Polyomino<N> &board, const Polyomino<K> &tile, int8_t dx,
     }
   }
 
+  int64_t result = 0;
+  int num_matches = 0;
+  int64_t tile_mask = 1;
   for (const auto &xy : board.xy_cords) {
     if (tile.has_coord({xy.first - dx, xy.second - dy})) {
       result |= tile_mask;
@@ -271,15 +310,15 @@ TileFitBitMask(const Polyomino<N> &board, const Polyomino<K> &tile, int8_t dx,
 }
 
 template <std::size_t N, std::size_t K>
-inline std::vector<int64_t>
+inline std::vector<uint64_t>
 FindMatchPatterns(const Polyomino<N> &board,
                   const Polyomino<K> &tile) noexcept {
   static_assert(N > K);
-  std::vector<int64_t> tile_masks;
+  std::vector<uint64_t> tile_masks;
   const auto [x_max, y_max] = board.max_xy();
   for (const auto t : tile.symmetries()) {
-    for (int8_t dx = 0; dx <= x_max; ++dx) {
-      for (int8_t dy = 0; dy <= y_max; ++dy) {
+    for (uint8_t dx = 0; dx <= x_max; ++dx) {
+      for (uint8_t dy = 0; dy <= y_max; ++dy) {
         auto mask = TileFitBitMask(board, t, dx, dy);
         if (mask != 0) {
           tile_masks.push_back(mask);
@@ -298,4 +337,62 @@ inline std::vector<int64_t>
 FindMatchPatterns([[maybe_unused]] const Polyomino<N> &board,
                   [[maybe_unused]] const Polyomino<1> &tile) noexcept {
   return {0};
+}
+
+template <std::size_t N> struct PrecomputedPolyminosSet {
+  static const auto &polyminos() {
+    static const auto val = []() {
+      auto result = get_next_gen(PrecomputedPolyminosSet<N - 1>::polyminos());
+      return result;
+    }();
+    return val;
+  }
+};
+
+template <> struct PrecomputedPolyminosSet<1> {
+  static const auto &polyminos() {
+    static const auto val = []() {
+      Polyomino<1> n0;
+      n0.xy_cords[0].first = 0;
+      n0.xy_cords[0].second = 0;
+      return std::vector<Polyomino<1>>{n0};
+    }();
+    return val;
+  }
+};
+
+template <std::size_t N, std::array<int, N> A>
+constexpr std::array<int, N - 1> peel() {
+  std::array<int, N - 1> result;
+  for (int i = 0; i < N - 1; ++i) {
+    result[i] = A[i + 1];
+  }
+  return result;
+}
+
+template <int N, int M> inline constexpr Polyomino<N * M> CreateRectangle() {
+  std::array<std::pair<int8_t, int8_t>, N * M> coords;
+  for (int i = 0; i < N; ++i) {
+    for (int j = 0; j < M; ++j) {
+      coords[i * M + j] = {i, j};
+    }
+  }
+  return Polyomino<N * M>{coords}.canonical();
+}
+
+template<std::size_t N> constexpr Polyomino<N-1> RemoveOne(const Polyomino<N>& p, int idx) {
+  std::array<std::pair<int8_t, int8_t>, N-1> coords;
+  int cur = 0;
+  for (int i = 0; i < N; ++i) {
+    if (i == idx) {
+      continue;
+    }
+    coords[cur++] = p.xy_cords[i];
+  }
+  return Polyomino<N-1>{coords}.canonical();
+}
+
+
+template <std::size_t N> inline constexpr Polyomino<N * N> CreateSquare() {
+  return CreateRectangle<N, N>();
 }

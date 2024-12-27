@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <array>
 #include <cstdint>
 
@@ -95,24 +96,26 @@ template <int N> static constexpr auto generate_partitions() {
   return result;
 }
 
-template <int N>
-struct Partition {
-  static constexpr auto kPartition = generate_partitions<N>();
-};
+// template <int N>
+// struct Partition {
+//   static constexpr auto kPartition = generate_partitions<N>();
+// };
 
-template <> struct Partition<1> { static constexpr auto kPartition = generate_partitions<1>(); };
-template <> struct Partition<2> { static constexpr auto kPartition = generate_partitions<2>(); };
-template <> struct Partition<3> { static constexpr auto kPartition = generate_partitions<3>(); };
-template <> struct Partition<4> { static constexpr auto kPartition = generate_partitions<4>(); };
-template <> struct Partition<5> { static constexpr auto kPartition = generate_partitions<5>(); };
-template <> struct Partition<6> { static constexpr auto kPartition = generate_partitions<6>(); };
-template <> struct Partition<7> { static constexpr auto kPartition = generate_partitions<7>(); };
-template <> struct Partition<8> { static constexpr auto kPartition = generate_partitions<8>(); };
-template <> struct Partition<9> { static constexpr auto kPartition = generate_partitions<9>(); };
-template <> struct Partition<10> { static constexpr auto kPartition = generate_partitions<10>(); };
-template <> struct Partition<11> { static constexpr auto kPartition = generate_partitions<11>(); };
-template <> struct Partition<12> { static constexpr auto kPartition = generate_partitions<12>(); };
-template <> struct Partition<13> { static constexpr auto kPartition = generate_partitions<13>(); };
-template <> struct Partition<14> { static constexpr auto kPartition = generate_partitions<14>(); };
-template <> struct Partition<15> { static constexpr auto kPartition = generate_partitions<15>(); };
-template <> struct Partition<16> { static constexpr auto kPartition = generate_partitions<16>(); };
+// template <> struct Partition<1> { static constexpr auto kPartition = generate_partitions<1>(); };
+// template <> struct Partition<2> { static constexpr auto kPartition = generate_partitions<2>(); };
+// template <> struct Partition<3> { static constexpr auto kPartition = generate_partitions<3>(); };
+// template <> struct Partition<4> { static constexpr auto kPartition = generate_partitions<4>(); };
+// template <> struct Partition<5> { static constexpr auto kPartition = generate_partitions<5>(); };
+// template <> struct Partition<6> { static constexpr auto kPartition = generate_partitions<6>(); };
+// template <> struct Partition<7> { static constexpr auto kPartition = generate_partitions<7>(); };
+// template <> struct Partition<8> { static constexpr auto kPartition = generate_partitions<8>(); };
+// template <> struct Partition<9> { static constexpr auto kPartition = generate_partitions<9>(); };
+// template <> struct Partition<10> { static constexpr auto kPartition = generate_partitions<10>(); };
+// template <> struct Partition<11> { static constexpr auto kPartition = generate_partitions<11>(); };
+// template <> struct Partition<12> { static constexpr auto kPartition = generate_partitions<12>(); };
+// template <> struct Partition<13> { static constexpr auto kPartition = generate_partitions<13>(); };
+// template <> struct Partition<14> { static constexpr auto kPartition = generate_partitions<14>(); };
+// template <> struct Partition<15> { static constexpr auto kPartition = generate_partitions<15>(); };
+// template <> struct Partition<16> { static constexpr auto kPartition = generate_partitions<16>(); };
+
+std::vector<std::vector<int>> generate_partitions(int N);

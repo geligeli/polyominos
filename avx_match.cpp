@@ -83,23 +83,33 @@ std::string BitmaskToString(const __m256i &bitmask) {
 static const __m512i initial_permute =
     _mm512_set_epi16(14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 15,
                      14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-static const __m512i shift_down =
-    _mm512_set_epi16(14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 14,
-                     13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0);
+
+static const __m512i shift_down = _mm512_set_epi16(
+    14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 30, 29, 28, 27, 26, 25,
+    24, 23, 22, 21, 20, 19, 18, 17, 16, 16);
+static const uint64_t shift_down_mask = 0xfffefffe;
 
 static const __m512i initial_clone =
     _mm512_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 15,
                      14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
 
-// RDI, RSI, RDX, RCX, R8, R9
 int _find_matches_avx512_16x16(__m256i const &board, __m256i const &candidate,
-                               int candidate_width, int candidate_height,
-                               __m256i *result_ptr) {
+                               std::pair<uint8_t, uint8_t> max_xy_board,
+                               std::pair<uint8_t, uint8_t> max_xy_candidate,
+                               __m256i (&results)[256]) {
+  if (max_xy_candidate.first > max_xy_board.first) {
+    return 0;
+  }
+  if (max_xy_candidate.second > max_xy_board.second) {
+    return 0;
+  }
 
-  int num_outer_loops = 16 - candidate_height;
-  int num_inner_loops = (16 - candidate_width) / 2;
+  // uint32_t num_outer_loops = 16 - max_xy_candidate.second;
+  // uint32_t num_inner_loops = (16 - max_xy_candidate.first) / 2;
+  uint32_t num_outer_loops = max_xy_board.second - max_xy_candidate.second + 1;
+  uint32_t num_inner_loops = (max_xy_board.first - max_xy_candidate.first) / 2 + 1;
 
-  auto start = result_ptr;
+  __m256i *result_ptr = &results[0];
 
   asm volatile(
       R"(
@@ -129,37 +139,54 @@ int _find_matches_avx512_16x16(__m256i const &board, __m256i const &candidate,
     // zmm1[255:0] is fit
     // CF is set if flipped board has a match
     // zmm1[511:256] is fit
-    JA .end_second_result%=
-    JNZ .end_first_result%=
-      VMOVDQU64 [%[result_ptr]] {%[lower_4_bits_mask]}, zmm1
+    JA .end_write_results%=
+    
+    JNZ .write_second_result%=  // jump if zf=0
+      VMOVDQU64 [%[result_ptr]] %{%[lower_4_bits_mask]}, zmm1
       ADD %[result_ptr], 32
-    .end_first_result%=:
-
-      VMOVDQU64 [%[result_ptr]-32] {%[upper_4_bits_mask]}, zmm1
+    KTESTB %[lower_4_bits_mask], k1
+    JAE .end_write_results%=     // jump if cf=0
+    .write_second_result%=: 
+      VMOVDQU64 [%[result_ptr]-32] %{%[upper_4_bits_mask]}, zmm1
       ADD %[result_ptr], 32
-    .end_second_result%=:
+    .end_write_results%=:
 
     VPSLLW zmm1, zmm1, 2
   LOOP .inner_loop%=
-    VPERMW zmm3 %{%[down_shift_permutation_mask]}%{z}, %[shift_down], zmm3
+    VPERMW zmm3 %{%[shift_down_mask]}%{z}, %[shift_down], zmm3
     VMOVDQA64 zmm1, zmm3
     dec %[num_outer_loops]
 jnz .outer_loop%=
    )"
       : [result_ptr] "+r"(result_ptr)
-      : [num_inner_loops] "g"(num_inner_loops),
+      : [num_inner_loops] "r"(num_inner_loops),
         [num_outer_loops] "r"(num_outer_loops), [board] "r"(&board),
         [candidate] "r"(&candidate), [initial_permute] "v"(initial_permute),
         [shift_down] "v"(shift_down), [initial_clone] "v"(initial_clone),
         [initial_permuate_mask] "Yk"(0b11111111111111101111111111111111),
-        [down_shift_permutation_mask] "Yk"(0b11111111111111101111111111111110),
+        [shift_down_mask] "Yk"(shift_down_mask),
         [initial_shift_mask] "Yk"(0b11111111111111110000000000000000),
         [lower_4_bits_mask] "Yk"(0b00001111),
         [upper_4_bits_mask] "Yk"(0b11110000)
+      : "zmm0", "zmm1", "zmm2", "zmm3", "k1", "cc", "ecx", "al", "memory");
+  return result_ptr - &results[0];
+}
 
-      // [permutation_mask] "Yk"(0b11111111111111101111111111111110),
-      // [bit_extract_mask] "Yk"(0b00001111), [idx_array32] "v"(idx_array32),
-      // [swap_boards_array] "r"(swap_boards_array)
-      : "zmm0", "zmm1", "zmm2", "zmm3", "k1", "cc", "rcx", "memory");
-  return result_ptr - start;
+std::vector<uint64_t>
+find_matches_avx512(BoardMatcher const &board,
+                    CandidateMatchBitmask const &candidate) {
+  auto board_max_xy = board.max_xy();
+  std::vector<uint64_t> results;
+  for (int i = 0; i < candidate.cnt; ++i) {
+    __m256i tmp[256];
+    auto num_matches =
+        _find_matches_avx512_16x16(board.board(), candidate.bitmasks[i],
+                                   board_max_xy, candidate.max_xy[i], tmp);
+    for (int j = 0; j < num_matches; ++j) {
+      results.push_back(board.compress(tmp[j]));
+    }
+  }
+  std::sort(results.begin(), results.end());
+  results.erase(std::unique(results.begin(), results.end()), results.end());
+  return results;
 }

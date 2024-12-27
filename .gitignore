@@ -3,3 +3,4 @@
 puzzle_maker
 bench
 bazel-*
+.cache

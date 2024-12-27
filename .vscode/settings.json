@@ -81,4 +81,8 @@
     "C_Cpp.default.cppStandard": "c++20",
     "clangd.onConfigChanged": "restart",
     "editor.inlayHints.enabled": "off",
+    "files.exclude": {
+        ".cache": true,
+        "bazel-*": true
+    },
 }
