@@ -114,9 +114,10 @@ template <std::size_t N> struct Polyomino {
     Polyomino result;
     result.xy_cords = xy_cords;
     std::sort(result.xy_cords.begin(), result.xy_cords.end(),
-     [](const auto &a, const auto &b) {
-       return std::make_pair(a.second, a.first) < std::make_pair(b.second, b.first);
-     });
+              [](const auto &a, const auto &b) {
+                return std::make_pair(a.second, a.first) <
+                       std::make_pair(b.second, b.first);
+              });
     return result;
   }
 
@@ -157,7 +158,7 @@ template <std::size_t N> struct Polyomino {
   }
 
   inline constexpr int bounding_box_area() const noexcept {
-    auto [x,y] = _align_to_positive_quadrant().max_xy();
+    auto [x, y] = _align_to_positive_quadrant().max_xy();
     return (x + 1) * (y + 1);
   }
 
@@ -257,13 +258,14 @@ get_next_gen(const std::vector<Polyomino<N>> &shapes) noexcept {
                   int idx = &s - start_it;
                   s.generate_neighbours(&result[idx * (3 * N + 1)]);
                 });
-  result.erase(std::remove_if(result.begin(), result.end(),
+  result.erase(std::remove_if(std::execution::par_unseq, result.begin(),
+                              result.end(),
                               [&invalidVal](const Polyomino<N + 1> &p) {
                                 return p == invalidVal;
                               }),
                result.end());
 
-  std::sort(result.begin(), result.end());
+  std::sort(std::execution::par_unseq, result.begin(), result.end());
   result.erase(std::unique(result.begin(), result.end()), result.end());
   return result;
 }
@@ -380,8 +382,9 @@ template <int N, int M> inline constexpr Polyomino<N * M> CreateRectangle() {
   return Polyomino<N * M>{coords}.canonical();
 }
 
-template<std::size_t N> constexpr Polyomino<N-1> RemoveOne(const Polyomino<N>& p, int idx) {
-  std::array<std::pair<int8_t, int8_t>, N-1> coords;
+template <std::size_t N>
+constexpr Polyomino<N - 1> RemoveOne(const Polyomino<N> &p, int idx) {
+  std::array<std::pair<int8_t, int8_t>, N - 1> coords;
   int cur = 0;
   for (int i = 0; i < N; ++i) {
     if (i == idx) {
@@ -389,9 +392,8 @@ template<std::size_t N> constexpr Polyomino<N-1> RemoveOne(const Polyomino<N>& p
     }
     coords[cur++] = p.xy_cords[i];
   }
-  return Polyomino<N-1>{coords}.canonical();
+  return Polyomino<N - 1>{coords}.canonical();
 }
-
 
 template <std::size_t N> inline constexpr Polyomino<N * N> CreateSquare() {
   return CreateRectangle<N, N>();

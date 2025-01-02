@@ -4,38 +4,13 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        // {
-        //     "name": "(lldb) Launch",
-        //     "type": "cppdbg",
-        //     "request": "launch",
-        //     "program": "${workspaceFolder}/bazel-bin/avx_match_test",
-        //     "args": [],
-        //     "stopAtEntry": false,
-        //     "cwd": "${fileDirname}",
-        //     "environment": [],
-        //     "externalConsole": true,
-        //     "MIMode": "lldb",
-        //     "miDebuggerPath": "/usr/bin/lldb",
-        //     // "setupCommands": [
-        //     //     {
-        //     //         "description": "Enable pretty-printing for gdb",
-        //     //         "text": "-enable-pretty-printing",
-        //     //         "ignoreFailures": true
-        //     //     },
-        //     //     {
-        //     //         "description": "Set Disassembly Flavor to Intel",
-        //     //         "text": "-gdb-set disassembly-flavor intel",
-        //     //         "ignoreFailures": true
-        //     //     }
-        //     // ]
-        // },
         {
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bazel-bin/avx_match_test",
+            "program": "${workspaceFolder}/bazel-bin/dl_matrix_test",
             "args": [],
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
@@ -55,7 +30,8 @@
                     "text": "-gdb-set disassembly-flavor intel",
                     "ignoreFailures": true
                 }
-            ]
+            ],
+            "preLaunchTask": "dl_matrix_test_dbg"
         }
     ]
 }

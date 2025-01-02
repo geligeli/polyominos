@@ -74,7 +74,8 @@
     "clangd.arguments": [
         "--background-index",
         "--compile-commands-dir=${workspaceFolder}",
-        "--header-insertion=never",
+        "--header-insertion=iwyu",
+        // "-std=c++20",
         // "--query-driver=**",
     ],
     "C_Cpp.default.compilerPath": "/usr/bin/clang++",

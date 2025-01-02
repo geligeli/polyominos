@@ -21,7 +21,6 @@ RUN wget https://ftp.gnu.org/gnu/gdb/gdb-15.2.tar.xz && \
     tar -xf gdb-15.2.tar.xz && rm gdb-15.2.tar.xz
 RUN apt install texinfo libreadline-dev libmpc-dev python-dev-is-python3 -y
 
-
 RUN cd gdb-15.2 && \
     mkdir build && \
     cd build && \
@@ -44,6 +43,13 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 USER ${user}
 WORKDIR /home/${user}
+
+RUN wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz
+RUN tar -xf google-cloud-cli-linux-x86_64.tar.gz && rm google-cloud-cli-linux-x86_64.tar.gz
+RUN ./google-cloud-sdk/install.sh -q
+RUN echo source ~/google-cloud-sdk/completion.bash.inc >> ~/.bashrc
+RUN echo source ~/google-cloud-sdk/path.bash.inc >> ~/.bashrc
+
 RUN echo "set disassembly-flavor intel" > ~/.gdbinit
 ENV CC=clang
 ENV CXX=clang++
