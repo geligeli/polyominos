@@ -43,11 +43,14 @@ void TryAllPossibilitiesForPartition(const PuzzleParams &params,
 
   const auto &tiles =
       params.possible_tiles_per_size[kCurrentPolyominoSizeToConsider - 1];
-  if (kRemainder != kCurrentPolyominoSizeToConsider) {
-    assert(kRemainder > 0);
-    assert(kRemainder > kCurrentPolyominoSizeToConsider);
 
-    for (std::size_t i = 0; i < tiles.size(); ++i) {
+  std::size_t tile_start_idx = 0;
+  if (current_index > 0 && kCurrentPolyominoSizeToConsider == partition[current_index-1]) {
+    tile_start_idx = p.back().index;
+  }
+
+  if (kRemainder != kCurrentPolyominoSizeToConsider) {
+    for (std::size_t i = tile_start_idx; i < tiles.size(); ++i) {
       PolyominoSubsetIndex tile{kCurrentPolyominoSizeToConsider, i};
       p.push_back(tile);
       TryAllPossibilitiesForPartition(
@@ -56,8 +59,7 @@ void TryAllPossibilitiesForPartition(const PuzzleParams &params,
       p.pop_back();
     }
   } else {
-    assert(kRemainder > 0);
-    for (std::size_t i = 0; i < tiles.size(); ++i) {
+    for (std::size_t i = tile_start_idx; i < tiles.size(); ++i) {
       PolyominoSubsetIndex tile{kCurrentPolyominoSizeToConsider, i};
       p.push_back(tile);
       puzzle_configuration_visitor(p);
@@ -78,16 +80,19 @@ EnumerateAllPossibilitiesForPartition(const PuzzleParams &params,
 }
 
 int main() {
-  constexpr int N = 17;
+  constexpr int N = 30;
 
   std::vector<std::size_t> candidate_set;
 
-  const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
+  // const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
+
+  std::array<Polyomino<30>,1> ps = {CreateRectangle<6, 5>()};
+
 
   for (std::size_t idx = 0; idx < ps.size(); ++idx) {
-    if (ps[idx].num_symmetries() > 1) {
-      continue;
-    }
+    // if (ps[idx].num_symmetries() > 1) {
+    //   continue;
+    // }
     candidate_set.push_back(idx);
   }
 
@@ -106,99 +111,83 @@ int main() {
                                   }),
                    partitions.end());
 
-  thread_local SolutionStats tl_best_stats{};
+  thread_local double tl_most_difficult{};
 
   std::mutex best_stats_mutex;
-  SolutionStats best_stats{};
+  double most_difficult{};
 
   std::mutex count_mutex;
   int i = 0;
-
-  // for (const auto &polyomino : candidate_set) {
+  uint64_t skipped_partitions{};
+  std::chrono::steady_clock::time_point start_time =
+      std::chrono::steady_clock::now();
   std::for_each(
-      std::execution::par_unseq, candidate_set.begin(), candidate_set.end(),
-      [&ps = std::as_const(ps), &partitions = std::as_const(partitions),
-       &candidate_set = std::as_const(candidate_set), &i, &count_mutex,
-       &best_stats, &best_stats_mutex](const auto &polyomino) {
+      // std::execution::par_unseq,
+      candidate_set.begin(), candidate_set.end(),
+      [&](const auto &polyomino) {
         PuzzleParams params{ps[polyomino]};
         for (const auto &partition : partitions) {
           auto possibilities =
               EnumerateAllPossibilitiesForPartition(params, partition);
           std::for_each(
+              std::execution::par_unseq,
               possibilities.begin(), possibilities.end(),
               [&](std::vector<PolyominoSubsetIndex> &p) {
                 PreProcessConfiguration(p);
                 if (params.possibilities_for_configuration(p) > 50) {
+                  ++skipped_partitions;
                   std::cout
                       << "Skipping configuration with too many possibilities"
                       << std::endl;
                   return;
                 }
-                PuzzleSolver::SolvingState solving_state{};
+
                 PuzzleSolver solver(params);
+                std::vector<std::size_t> solution;
 
-                solving_state.candidate_tiles = p;
-                solver.Solve(solving_state);
-
-                if (solving_state.earlyAbort ||
-                    solving_state.stats.solution_count == 0) {
+                if (!solver.Solve(p, solution)) {
                   return;
                 }
-                if (solving_state.stats > tl_best_stats) {
-                  // stats might be better than tl_best_stats
-                  auto solution_p = p;
-                  const auto cutoff = tl_best_stats.possibilities_at_last_step;
-                  for (int i = 1; i < p.size(); ++i) {
-                    std::rotate(p.begin(), p.begin() + 1, p.end());
-                    solving_state.stats.possibilities_at_last_step =
-                        std::min(solving_state.stats.possibilities_at_last_step,
-                                 solver.CountSolutionsToNminusOne(p));
-                    if (solving_state.stats.possibilities_at_last_step <=
-                        cutoff) {
-                      // we know stats are worse than tl_best_stats
-                      return;
-                    }
-                  }
-                  if (solving_state.stats <= tl_best_stats) {
-                    std::cerr << "Error: stats <= tl_best_stats" << std::endl;
-                    std::abort();
-                    return;
-                  }
+                double difficulty = solver.EstimateDifficulty(p);
 
-                  tl_best_stats = solving_state.stats;
+                if (difficulty > tl_most_difficult) {
+                  tl_most_difficult = difficulty;
+
                   std::lock_guard lk(best_stats_mutex);
-                  if (solving_state.stats > best_stats) {
-                    best_stats = solving_state.stats;
-                    std::cout << "\n";
-                    std::cout
-                        << "Solutions: " << solving_state.stats.solution_count
-                        << std::endl;
-                    std::cout << "Possibilities at last step: "
-                              << solving_state.stats.possibilities_at_last_step
-                              << std::endl;
+                  if (difficulty > most_difficult) {
+                    most_difficult = difficulty;
+                    std::cout << "\nDifficulty " << difficulty << "\n";
                     std::cout << "Decoded solution: \n";
                     std::cout
-                        << solver.decodeSolution(ps[polyomino], solving_state)
+                        << solver.decodeSolution(ps[polyomino], solution, p)
                         << "\n";
-                    for (auto t : solution_p) {
-                      std::cout << params.display_string(t);
-                    }
                     std::cout << "Partition=";
                     for (auto t : partition) {
                       std::cout << t << " ";
                     }
                     std::cout << std::endl;
                   } else {
-                    tl_best_stats = best_stats;
+                    tl_most_difficult = most_difficult;
                   }
                 }
               });
         }
         {
           std::lock_guard lk(count_mutex);
-          i++;
-          std::cout << "Polyomino: " << i << " of " << candidate_set.size()
-                    << "\r";
+          ++i;
+          if ((i & 0xff) == 0) {
+            auto dt = std::chrono::steady_clock::now() - start_time;
+            std::cout << "Polyomino: " << std::setw(8) << ++i << " of "
+                      << candidate_set.size() << " "
+                      << "Polyominos per second: " << std::setw(8)
+                      << i / std::chrono::duration<double>(dt).count()
+                      << " ETA: " << std::setw(8)
+                      << std::chrono::duration<double>(dt).count() / i *
+                             (candidate_set.size() - i)
+                      << "s " << std::setw(4) << skipped_partitions
+                      << " skipped configurations"
+                      << "\r";
+          }
         }
       });
   std::cout << "\nDone\n";

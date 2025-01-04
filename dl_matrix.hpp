@@ -1,7 +1,9 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <string>
+#include <sys/types.h>
 #include <vector>
 #include <limits>
 
@@ -60,7 +62,9 @@ public:
 
   const ColHeader &root() const;
 
+  void PrintStats();
 private:
+  
   template <typename Visitor> void WalkAllCols(Visitor &&visitor) const {
     const auto root_idx = col_headers.size() - 1;
     for (ColumnIndex idx = col_headers[root_idx].right; idx != root_idx;
@@ -128,8 +132,8 @@ private:
     });
 
     if (min_col_size == 0) {
+      ++number_of_times_stuck;
       on_stuck(min_col);
-      // no solution, go on.
       return true;
     }
     CoverColumn(min_col);
@@ -147,11 +151,23 @@ private:
       });
       return keep_going;
     });
+    UncoverColum(min_col);
     return keep_going;
   };
 
+  uint64_t num_columns{};
+  uint64_t num_rows{};
 
-  friend bool SolveCoverProblem(const std::vector<uint64_t> &v,
+  uint64_t detach_entry_ops{};
+  uint64_t restore_entry_ops{};
+  uint64_t detach_column_ops{};
+  uint64_t restore_column_ops{};
+  uint64_t cover_column_ops{};
+  uint64_t uncover_column_ops{};
+  uint64_t number_of_times_stuck{};
+  std::chrono::system_clock::time_point start_time = std::chrono::system_clock::now();
+
+  friend bool SolveCoverProblem(DLMatrix& dl_matrix,
                                 std::vector<std::size_t> &rows);
 
   friend void
@@ -159,7 +175,7 @@ private:
                               std::vector<std::vector<std::size_t>> &solutions);
 };
 
-bool SolveCoverProblem(const std::vector<uint64_t> &v,
+bool SolveCoverProblem(DLMatrix& dl_matrix,
                        std::vector<std::size_t> &rows);
 
 void ExhaustiveSolveCoverProblem(

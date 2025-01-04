@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bazel-bin/dl_matrix_test",
+            "program": "${workspaceFolder}/bazel-bin/puzzle_solver_test",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -31,7 +31,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "dl_matrix_test_dbg"
+            "preLaunchTask": "dbg"
         }
     ]
 }

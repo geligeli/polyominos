@@ -2,31 +2,33 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <chrono>
 #include <cstddef>
 #include <iostream>
 #include <limits>
 #include <numeric>
 #include <unordered_set>
+#include <utility>
 
 // v is a vector of bitmasks
 DLMatrix::DLMatrix(const std::vector<uint64_t> &v) {
   const auto num_entries =
       std::transform_reduce(v.begin(), v.end(), 0u, std::plus<uint64_t>{},
                             [](auto x) { return std::popcount(x); });
-  const auto num_columns = std::transform_reduce(
+  num_columns = std::transform_reduce(
       v.begin(), v.end(), 0u,
       [](uint64_t a, uint64_t b) { return std::max<uint64_t>(a, b); },
       [](auto x) { return static_cast<uint64_t>(std::bit_width(x)); });
   entries.reserve(num_entries);
   col_headers.resize(num_columns + 1);
   for (std::size_t col_idx = 0; col_idx <= num_columns; ++col_idx) {
-
     col_headers[col_idx].left = col_idx == 0 ? num_columns : col_idx - 1;
     col_headers[col_idx].right = col_idx == num_columns ? 0 : col_idx + 1;
     col_headers[col_idx].col_size = 0;
     col_headers[col_idx].down = -1;
     col_headers[col_idx].up = -1;
   }
+  num_rows = v.size();
   std::vector<PtrType> idx_to_previous_entry_in_col(num_columns, -1);
   for (std::size_t row = 0; row < v.size(); ++row) {
     Entry entry;
@@ -70,6 +72,7 @@ DLMatrix::DLMatrix(const std::vector<uint64_t> &v) {
 const DLMatrix::ColHeader &DLMatrix::root() const { return col_headers.back(); }
 
 void DLMatrix::DetachEntryFromColumn(PtrType entry_idx) {
+  // ++detach_entry_ops;
   const auto &entry = entries[entry_idx];
   auto &col_header = col_headers[entry.col];
   if (entry.up == -1) {
@@ -86,6 +89,7 @@ void DLMatrix::DetachEntryFromColumn(PtrType entry_idx) {
 }
 
 void DLMatrix::RestoreEntryFromColumn(PtrType entry_idx) {
+  // ++restore_entry_ops;
   const auto &entry = entries[entry_idx];
   auto &col_header = col_headers[entry.col];
   if (entry.up == -1) {
@@ -167,16 +171,19 @@ std::string DLMatrix::DebugString() const {
 }
 
 void DLMatrix::DetachColumnHeader(ColumnIndex col_idx) {
+  ++detach_column_ops;
   col_headers[col_headers[col_idx].left].right = col_headers[col_idx].right;
   col_headers[col_headers[col_idx].right].left = col_headers[col_idx].left;
 }
 
 void DLMatrix::RestoreColumnHeader(ColumnIndex col_idx) {
+  ++restore_column_ops;
   col_headers[col_headers[col_idx].left].right = col_idx;
   col_headers[col_headers[col_idx].right].left = col_idx;
 }
 
 void DLMatrix::CoverColumn(ColumnIndex col_idx) {
+  ++cover_column_ops;
   DetachColumnHeader(col_idx);
   WalkDownCol(col_idx, [this](PtrType elem) {
     WalkRowRight(elem, [this](PtrType idx) { DetachEntryFromColumn(idx); });
@@ -184,23 +191,56 @@ void DLMatrix::CoverColumn(ColumnIndex col_idx) {
 }
 
 void DLMatrix::UncoverColum(ColumnIndex col_idx) {
+  ++uncover_column_ops;
   WalkUpCol(col_idx, [this](PtrType elem) {
     WalkRowLeft(elem, [this](PtrType idx) { RestoreEntryFromColumn(idx); });
   });
   RestoreColumnHeader(col_idx);
 }
 
-bool SolveCoverProblem(const std::vector<uint64_t> &v,
+void DLMatrix::PrintStats() {
+  auto last_tp = std::exchange(start_time, std::chrono::system_clock::now());
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+      start_time - last_tp);
+
+  std::cout << "Matrix is " << num_rows << "x" << num_columns << "\n";
+  std::cout << "with " << entries.size() << " entries\n";
+  std::cout << "number_of_times_stuck: " << number_of_times_stuck << std::endl;
+  if (duration.count() > 0) {
+    std::cout << "detach_entry_ops / ms: "
+              << detach_entry_ops / duration.count() << "\n"
+              << "restore_entry_ops / ms: "
+              << restore_entry_ops / duration.count() << "\n"
+              << "detach_column_ops / ms: "
+              << detach_column_ops / duration.count() << "\n"
+              << "restore_column_ops / ms: "
+              << restore_column_ops / duration.count() << "\n"
+              << "cover_column_ops / ms: "
+              << cover_column_ops / duration.count() << "\n"
+              << "uncover_column_ops / ms: "
+              << uncover_column_ops / duration.count() << std::endl;
+  }
+  detach_entry_ops = 0;
+  restore_entry_ops = 0;
+  detach_column_ops = 0;
+  restore_column_ops = 0;
+  cover_column_ops = 0;
+  uncover_column_ops = 0;
+}
+
+bool SolveCoverProblem(DLMatrix& dl_matrix,
                        std::vector<std::size_t> &solution) {
-  DLMatrix dl_matrix(v);
+  // DLMatrix dl_matrix(v);
   bool found_solution = false;
   dl_matrix.Recurse(
       [&]() {
         found_solution = true;
         return false;
       },
-      [&](DLMatrix::ColumnIndex col) {},
-      [&](std::size_t row) { solution.push_back(row); },
+      [](DLMatrix::ColumnIndex col) {},
+      [&](std::size_t row) {
+        solution.push_back(row);
+      },
       [&]() {
         if (!found_solution) {
           solution.pop_back();

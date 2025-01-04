@@ -49,8 +49,31 @@ cc_library(
         "puzzle_solver.hpp",
     ],
     deps = [
+        ":dl_matrix",
         ":avx_match",
         ":polyominos",
+    ],
+)
+
+cc_test(
+    name = "puzzle_solver_test",
+    srcs = [
+        "puzzle_solver_test.cpp",
+    ],
+    deps = [
+        ":puzzle_solver",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "puzzle_solver_bench",
+    srcs = [
+        "puzzle_solver_bench.cpp",
+    ],
+    deps = [
+        ":puzzle_solver",
+        "@google_benchmark//:benchmark",
     ],
 )
 
@@ -81,7 +104,7 @@ cc_library(
     ],
 )
 
-cc_binary(
+cc_test(
     name = "avx_match_test",
     srcs = [
         "avx_match_test.cpp",

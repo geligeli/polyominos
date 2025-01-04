@@ -11,7 +11,7 @@
 #include <optional>
 #include <vector>
 
-constexpr std::size_t kMaxPolyominoSize = 12;
+constexpr std::size_t kMaxPolyominoSize = 6;
 extern const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize>
     kPrecomputedPolyminosMatchSet;
 extern const std::array<std::vector<std::string>, kMaxPolyominoSize>
@@ -29,24 +29,27 @@ struct SolutionStats {
 struct PolyominoIndex {
   std::size_t N;
   std::size_t index;
-  inline constexpr std::strong_ordering operator<=>(
-      const PolyominoIndex &other) const noexcept = default;
+  inline constexpr std::strong_ordering
+  operator<=>(const PolyominoIndex &other) const noexcept = default;
 };
 
+// Can be used in PuzzleParams::operator[] to get the masks for a given
+// polyomino
 struct PolyominoSubsetIndex {
   std::size_t N;
   std::size_t index;
-  inline constexpr std::strong_ordering operator<=>(
-      const PolyominoSubsetIndex &other) const noexcept = default;
+  inline constexpr std::strong_ordering
+  operator<=>(const PolyominoSubsetIndex &other) const noexcept = default;
 };
 
-using BitMaskType = uint32_t;
+using BitMaskType = uint64_t;
 
 struct PuzzleParams {
   template <std::size_t N>
   explicit PuzzleParams(const Polyomino<N> &board) noexcept : N(N) {
     BoardMatcher matcher = PolyominoToBoardMatcher(board);
-    for (std::size_t i = 0; i < kPrecomputedPolyminosMatchSet.size(); ++i) {
+    // avx512 matcher
+    for (std::size_t i = 0; i < kMaxPolyominoSize; ++i) {
       for (std::size_t j = 0; j < kPrecomputedPolyminosMatchSet[i].size();
            ++j) {
         auto result =
@@ -70,7 +73,8 @@ struct PuzzleParams {
   double possibilities_for_configuration(
       const std::vector<PolyominoSubsetIndex> &configuration) const;
 
-  const std::vector<BitMaskType> &operator[](PolyominoSubsetIndex idx) const noexcept;
+  const std::vector<BitMaskType> &
+  operator[](PolyominoSubsetIndex idx) const noexcept;
   const std::string &display_string(PolyominoSubsetIndex idx) const noexcept;
 
   std::size_t N;
@@ -80,60 +84,68 @@ struct PuzzleParams {
 
 class PuzzleSolver {
 public:
+  enum class Algoritm { DLX, BF };
   PuzzleSolver(const PuzzleParams &params);
-  const PuzzleParams &params;
 
-  struct SolvingState {
-    SolutionStats stats{};
-    bool earlyAbort{false};
+  bool Solve(const std::vector<PolyominoSubsetIndex> &candidate_tiles,
+             std::vector<std::size_t> &foundSolution,
+             Algoritm algo = Algoritm::BF) const noexcept;
 
-    std::vector<PolyominoSubsetIndex> candidate_tiles;
-    std::vector<std::size_t> indices;
-    std::vector<std::size_t> foundSolution;
-  };
+  double
+  EstimateDifficulty(const std::vector<PolyominoSubsetIndex> &candidate_tiles,
+                     Algoritm algo = Algoritm::BF) const noexcept;
 
-  void Solve(SolvingState &state, BitMaskType current_state = 0,
-             std::size_t current_index = 0) const noexcept;
+  template <std::size_t N>
+  std::string decodeSolution(
+      Polyomino<N> board, const std::vector<std::size_t> &solution,
+      const std::vector<PolyominoSubsetIndex> &candidate_tiles) const noexcept;
 
-  uint64_t CountSolutionsToNminusOne(
+private:
+  bool internalSolve(const std::vector<PolyominoSubsetIndex> &candidate_tiles,
+                     std::vector<std::size_t> &indices,
+                     BitMaskType current_state = 0,
+                     std::size_t current_index = 0) const noexcept;
+  uint64_t internalCountSolutionsToNminusOne(
       const std::vector<PolyominoSubsetIndex> &candidate_tiles,
       BitMaskType current_state = 0,
       std::size_t current_index = 0) const noexcept;
 
-  template <std::size_t N>
-  std::string decodeSolution(Polyomino<N> board,
-                             const SolvingState &state) const noexcept {
-    board = board.sorted();
-    const auto [x_max, y_max] = board.max_xy();
-    std::stringstream result;
-    for (int y = 0; y <= y_max; ++y) {
-      for (int x = 0; x <= x_max; ++x) {
-        auto idx = board.find_coord({x, y});
-        if (!idx) {
-          result << ".";
-          continue;
-        }
-        bool found = false;
-        for (std::size_t i = 0; i < state.candidate_tiles.size(); ++i) {
-          const auto &tile =
-              params[state.candidate_tiles[i]][state.foundSolution[i]];
-          if (tile & (1 << *idx)) {
-            found = true;
-            result << kColors[i];
-            break;
-          }
-        }
-        if (!found) {
-          result << "?";
-        }
-      }
-      result << "\n";
-    }
-    return result.str();
-  }
-
+  const PuzzleParams &params;
 };
 
-std::vector<BitMaskType> CrossProduct(const std::vector<BitMaskType> &a,
-                                      const std::vector<BitMaskType> &b);
 void PreProcessConfiguration(std::vector<PolyominoSubsetIndex> &p);
+
+template <std::size_t N>
+std::string PuzzleSolver::decodeSolution(
+    Polyomino<N> board, const std::vector<std::size_t> &solution,
+    const std::vector<PolyominoSubsetIndex> &candidate_tiles) const noexcept {
+  if (solution.size() != candidate_tiles.size()) {
+    return "No solution found";
+  }
+  board = board.sorted();
+  const auto [x_max, y_max] = board.max_xy();
+  std::stringstream result;
+  for (int y = 0; y <= y_max; ++y) {
+    for (int x = 0; x <= x_max; ++x) {
+      auto idx = board.find_coord({x, y});
+      if (!idx) {
+        result << ".";
+        continue;
+      }
+      bool found = false;
+      for (std::size_t i = 0; i < candidate_tiles.size(); ++i) {
+        const auto &tile = params[candidate_tiles[i]][solution[i]];
+        if (tile & (1 << *idx)) {
+          found = true;
+          result << kColors[i % kColors.size()];
+          break;
+        }
+      }
+      if (!found) {
+        result << "?";
+      }
+    }
+    result << "\n";
+  }
+  return result.str();
+}
