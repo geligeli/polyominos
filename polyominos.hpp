@@ -5,6 +5,7 @@
 #include <array>
 #include <bitset>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <execution>
 #include <functional>
@@ -20,6 +21,11 @@
 template <std::size_t N> struct Polyomino {
   static inline constexpr std::size_t size = N;
   std::array<std::pair<int8_t, int8_t>, N> xy_cords;
+
+  std::vector<std::pair<int8_t, int8_t>> xy_cords_vector() const noexcept {
+    return std::vector<std::pair<int8_t, int8_t>>(xy_cords.begin(),
+                                                  xy_cords.end());
+  }
 
   inline constexpr Polyomino rotate_90() const noexcept {
     Polyomino result;
@@ -200,6 +206,17 @@ template <std::size_t N> struct Polyomino {
     std::cout << "\n";
   }
 
+  std::string openscad_string() const noexcept {
+    std::stringstream ss;
+    auto s = _align_to_positive_quadrant();
+    ss << "[";
+    for (const auto &[x, y] : s.xy_cords) {
+      ss << "[" << static_cast<int>(x) << "," << static_cast<int>(y) << "],";
+    }
+    ss << "]";
+    return std::move(ss).str();
+  }
+
   template <typename IT>
   void generate_neighbours(IT storage_iterator) const noexcept {
     static constexpr std::array<std::pair<int8_t, int8_t>, 4> directions = {
@@ -258,15 +275,17 @@ get_next_gen(const std::vector<Polyomino<N>> &shapes) noexcept {
                   int idx = &s - start_it;
                   s.generate_neighbours(&result[idx * (3 * N + 1)]);
                 });
-  result.erase(std::remove_if(std::execution::par_unseq, result.begin(),
+  result.erase(std::remove_if(result.begin(),
                               result.end(),
                               [&invalidVal](const Polyomino<N + 1> &p) {
                                 return p == invalidVal;
                               }),
                result.end());
+  result.shrink_to_fit();
 
   std::sort(std::execution::par_unseq, result.begin(), result.end());
   result.erase(std::unique(result.begin(), result.end()), result.end());
+  result.shrink_to_fit();
   return result;
 }
 

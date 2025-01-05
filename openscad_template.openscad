@@ -1,0 +1,99 @@
+base = 15;
+bevel_height = 0.06 * base;
+cube_height = 0.5 * base - 2 * bevel_height; //0.2*base;
+base_height = 0.2 * base;
+base_wall_width = base_height;
+
+module prism(base, height, bevel_offset) {
+    CubePoints = [
+        [0, 0, 0],  //0
+        [base, 0, 0],  //1
+        [base, base, 0],  //2
+        [0, base, 0],  //3
+        [bevel_offset, bevel_offset, height],  //4
+        [base - bevel_offset, bevel_offset, height],  //5
+        [base - bevel_offset, base - bevel_offset, height],  //6
+        [bevel_offset, base - bevel_offset, height] //7
+    ];
+    CubeFaces = [
+        [0, 1, 2, 3],  // bottom
+        [4, 5, 1, 0],  // front
+        [7, 6, 5, 4],  // top
+        [5, 6, 2, 1],  // right
+        [6, 7, 3, 2],  // back
+        [7, 4, 0, 3]]; // left
+
+    polyhedron(CubePoints, CubeFaces);
+}
+
+module puzzle_block(base,
+    bevel_height,
+    cube_height){
+    translate([0, 0, bevel_height]) {
+        union(){
+            translate([0, 0, cube_height]) {
+                prism(base, bevel_height, bevel_height);
+            }
+            cube([base, base, cube_height]);
+            mirror([0, 0, 1]) {
+                prism(base, bevel_height, bevel_height);
+            }
+        }
+    }
+}
+
+module _polyomino(points) {
+    union() {
+        for (a = [0 : len(points) - 1]) {
+            p = points[a];
+            translate([p[0] * base, p[1] * base, 0]) {
+                puzzle_block(base, bevel_height, cube_height);
+            }
+        }
+    }
+}
+
+module shrink(size = 0.5) {
+    difference() {
+        children();
+        minkowski() {
+            difference() {
+                minkowski() {
+                    children();
+                    cube(2.5 * size, center = true);
+                }
+                children();
+            }
+            cube(size, center = true);
+        }
+    }
+}
+
+module polyomino(points) {
+    translate([0, 0, -0.25]) {
+        shrink() {
+            _polyomino(points);
+        }
+    }
+}
+
+module game_base(points) {
+    for (a = [0 : len(points) - 1]) {
+        p = points[a];
+        translate([p[0] * base - (base_wall_width), p[1] * base - (base_wall_width), 0]) {
+            cube([base + 2 * base_wall_width, base + 2 * base_wall_width, base_height + base_wall_width]);
+        }
+    }
+}
+
+module game_board(points) {
+    wall_height = base_wall_width;
+    translate([0, 0, wall_height]) {
+        difference() {
+            translate([0, 0, -wall_height]){
+                game_base(points);
+            }
+            _polyomino(points);
+        }
+    }
+}

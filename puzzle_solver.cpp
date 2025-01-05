@@ -6,6 +6,7 @@
 #include <array>
 #include <bit>
 #include <bits/chrono.h>
+#include <bits/utility.h>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -44,13 +45,13 @@ template <int N> struct PrecomputedPolyminosMatchSet {
     return val;
   }
 
-  static const std::vector<std::string> &strings() {
-    static const std::vector<std::string> val = []() {
+  static const std::vector<std::vector<std::pair<int8_t, int8_t>>> &xy_cords_vector() {
+    static const  std::vector<std::vector<std::pair<int8_t, int8_t>>> val = []() {
       const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
-      std::vector<std::string> result(ps.size());
+      std::vector<std::vector<std::pair<int8_t, int8_t>>> result(ps.size());
       std::size_t i = 0;
       for (const auto &p : ps) {
-        result[i++] = p.string();
+        result[i++] = p.xy_cords_vector();
       }
       return result;
     }();
@@ -58,33 +59,25 @@ template <int N> struct PrecomputedPolyminosMatchSet {
   }
 };
 
-const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize>
-    kPrecomputedPolyminosMatchSet{PrecomputedPolyminosMatchSet<1>::matchers(),
-                                  PrecomputedPolyminosMatchSet<2>::matchers(),
-                                  PrecomputedPolyminosMatchSet<3>::matchers(),
-                                  PrecomputedPolyminosMatchSet<4>::matchers(),
-                                  PrecomputedPolyminosMatchSet<5>::matchers(),
-                                  PrecomputedPolyminosMatchSet<6>::matchers(),
-                                  // PrecomputedPolyminosMatchSet<7>::matchers(),
-                                  // PrecomputedPolyminosMatchSet<8>::matchers(),
-                                  /*PrecomputedPolyminosMatchSet<9>::matchers(),
-                                  PrecomputedPolyminosMatchSet<10>::matchers(),
-                                  PrecomputedPolyminosMatchSet<11>::matchers(),
-                                  PrecomputedPolyminosMatchSet<12>::matchers()*/};
+namespace {
+template <typename T, T... ints>
+auto _MatchConstructor(std::integer_sequence<T, ints...> int_seq) {
+    return std::array<std::vector<CandidateMatchBitmask>, int_seq.size()>{
+  {PrecomputedPolyminosMatchSet<ints+1>::matchers()...} };
+};
 
-const std::array<std::vector<std::string>, kMaxPolyominoSize>
-    kPrecomputedPolyominosAsString{PrecomputedPolyminosMatchSet<1>::strings(),
-                                   PrecomputedPolyminosMatchSet<2>::strings(),
-                                   PrecomputedPolyminosMatchSet<3>::strings(),
-                                   PrecomputedPolyminosMatchSet<4>::strings(),
-                                   PrecomputedPolyminosMatchSet<5>::strings(),
-                                   PrecomputedPolyminosMatchSet<6>::strings(),
-                                  //  PrecomputedPolyminosMatchSet<7>::strings(),
-                                  //  PrecomputedPolyminosMatchSet<8>::strings(),
-                                   /*PrecomputedPolyminosMatchSet<9>::strings(),
-                                   PrecomputedPolyminosMatchSet<10>::strings(),
-                                   PrecomputedPolyminosMatchSet<11>::strings(),
-                                   PrecomputedPolyminosMatchSet<12>::strings()*/};
+template <typename T, T... ints>
+auto _XyCordConstructor(std::integer_sequence<T, ints...> int_seq) {
+    return std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, int_seq.size()>{
+  {PrecomputedPolyminosMatchSet<ints+1>::xy_cords_vector()...} };
+};
+}
+
+const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize>
+    kPrecomputedPolyminosMatchSet = _MatchConstructor(std::make_integer_sequence<int, kMaxPolyominoSize>{});
+
+const std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, kMaxPolyominoSize>
+    kPrecomputedPolyominosTypeErased = _XyCordConstructor(std::make_integer_sequence<int, kMaxPolyominoSize>{});
 
 const std::array<std::string, 14> kColors = {
     "\033[31m0\033[0m", "\033[32m1\033[0m", "\033[33m2\033[0m",
@@ -139,11 +132,13 @@ const std::vector<BitMaskType> &
 PuzzleParams::operator[](PolyominoSubsetIndex idx) const noexcept {
   return possible_tiles_per_size[idx.N - 1][idx.index].masks;
 }
-const std::string &
-PuzzleParams::display_string(PolyominoSubsetIndex idx) const noexcept {
+
+
+const std::vector<std::pair<int8_t, int8_t>> &
+PuzzleParams::xy_coordinates(PolyominoSubsetIndex idx) const noexcept {
   const auto global_idx =
       possible_tiles_per_size[idx.N - 1][idx.index].polyomino_index;
-  return kPrecomputedPolyominosAsString[global_idx.N - 1][global_idx.index];
+  return kPrecomputedPolyominosTypeErased[global_idx.N - 1][global_idx.index];
 }
 
 PuzzleSolver::PuzzleSolver(const PuzzleParams &params) : params(params) {}

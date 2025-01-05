@@ -5,6 +5,9 @@ ARG user=geli
 ARG gid=1000
 ARG group=geli
 
+RUN wget -qO- https://files.openscad.org/OBS-Repository-Key.pub | tee /etc/apt/trusted.gpg.d/obs-openscad-nightly.asc
+RUN echo 'deb https://download.opensuse.org/repositories/home:/t-paul/Debian_12/ ./' > /etc/apt/sources.list.d/openscad.list 
+
 RUN apt-get update -y
 RUN apt-get upgrade -y
 
@@ -13,6 +16,7 @@ RUN apt install git -y
 RUN apt install clangd -y
 RUN apt install linux-perf -y
 RUN apt install sudo -y
+RUN apt install openscad-nightly -y
 
 RUN wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
 RUN wget -O /usr/local/bin/buildifier https://github.com/bazelbuild/buildtools/releases/download/v7.3.1/buildifier-linux-amd64

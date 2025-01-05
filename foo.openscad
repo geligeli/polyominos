@@ -1,0 +1,86 @@
+$fn = 64;
+
+base=15;
+bevel_height=0.06*base;
+cube_height=0.2*base;
+
+module prism(base, height, bevel_offset) {
+    CubePoints = [
+      [                 0,                  0,  0 ],  //0
+      [              base,                  0,  0 ],  //1
+      [              base,               base,  0 ],  //2
+      [                 0,               base,  0 ],  //3
+      [      bevel_offset,       bevel_offset,  height ],  //4
+      [ base-bevel_offset,       bevel_offset,  height ],  //5
+      [ base-bevel_offset,  base-bevel_offset,  height ],  //6
+      [      bevel_offset,  base-bevel_offset,  height ] //7
+     ];
+    CubeFaces = [
+      [0,1,2,3],  // bottom
+      [4,5,1,0],  // front
+      [7,6,5,4],  // top
+      [5,6,2,1],  // right
+      [6,7,3,2],  // back
+      [7,4,0,3]]; // left
+      
+    polyhedron( CubePoints, CubeFaces );
+}
+
+module puzzle_block(base,
+                    bevel_height,
+                    cube_height){
+    translate([0,0,bevel_height]) {
+        union(){
+          translate([0,0,cube_height]) {
+              prism(base, bevel_height, bevel_height);
+          }
+          cube([base,base,cube_height]);
+          mirror([0,0,1]) {
+              prism(base, bevel_height, bevel_height);
+          }
+        }
+    }
+}
+
+module polyomino(points) {
+    for (a = [ 0 : len(points) - 1 ]) 
+    {
+        p=points[a];
+        translate([p[0]*base,p[1]*base,0]) {    
+            puzzle_block(base, bevel_height, cube_height);
+        }
+    }
+}
+
+module game_base(points, margin=0.1) {    
+    for (a = [ 0 : len(points) - 1 ]) 
+    {
+        p=points[a];
+        translate([p[0]*base-(0.5*margin*base), p[1]*base-(0.5*margin*base), 0]) {
+            cube([base*(1+margin),base*(1+margin),cube_height]);
+        }
+    }
+}
+
+module game_board(points) {
+    translate([0,0,cube_height-bevel_height]) {
+        difference() {
+            translate([0,0,-cube_height+bevel_height]){
+                game_base(points);
+            }
+            minkowski() {
+                polyomino(points);
+                cube(0.1);
+            }
+        }
+    }
+}
+
+game_board([[0,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[1,3],]);
+polyomino([[8,0],[8,1],[8,2],[9,2],]);
+polyomino([[11,0],[11,1],[12,1],]);
+polyomino([[14,0],[14,1],]);
+polyomino([[16,0],[16,1],]);
+polyomino([[18,0],[18,1],]);
+polyomino([[20,0],[20,1],]);
+

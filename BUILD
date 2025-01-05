@@ -1,4 +1,19 @@
 cc_library(
+    name = "combinatorics",
+    hdrs = ["combinatorics.hpp"],
+    deps = []
+)
+
+cc_test(
+    name = "combinatorics_test",
+    srcs = ["combinatorics_test.cpp"],
+    deps = [
+        ":combinatorics",
+        "@googletest//:gtest_main",
+    ]
+)
+
+cc_library(
     name = "loggers",
     srcs = ["loggers.cpp"],
     hdrs = ["loggers.hpp"],
@@ -83,6 +98,7 @@ cc_binary(
         "puzzle_maker.cpp",
     ],
     deps = [
+        ":combinatorics",
         ":avx_match",
         ":puzzle_solver",
         ":loggers",

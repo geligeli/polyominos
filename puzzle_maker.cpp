@@ -1,4 +1,5 @@
 #include "avx_match.hpp"
+#include "combinatorics.hpp"
 #include "partition_function.hpp"
 #include "polyominos.hpp"
 #include "puzzle_solver.hpp"
@@ -11,6 +12,7 @@
 #include <iostream>
 #include <mutex>
 #include <optional>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -21,78 +23,36 @@ inline bool AcceptPartition(const std::vector<int> &partition, int N) {
   if (partition[0] > kMaxPolyominoSize) {
     return false;
   }
+  return std::count_if(partition.begin(), partition.end(), [](int i) { return i != 1; }) <= 5;
+  // return (partition.size() <= 5);
   return true;
 }
 
-void TryAllPossibilitiesForPartition(const PuzzleParams &params,
-                                     const std::vector<int> &partition,
-                                     const auto &puzzle_configuration_visitor,
-                                     std::size_t current_index = 0,
-                                     std::vector<PolyominoSubsetIndex> p = {},
-                                     std::size_t squares_covered_so_far = 0) {
-  if (squares_covered_so_far >= params.N) {
-    std::cerr << "Invalid partition" << std::endl;
-    for (auto p : partition) {
-      std::cerr << p << " ";
-    }
-    std::cerr << std::endl;
-    std::abort();
-  }
-  const int kRemainder = params.N - squares_covered_so_far;
-  const std::size_t kCurrentPolyominoSizeToConsider = partition[current_index];
-
-  const auto &tiles =
-      params.possible_tiles_per_size[kCurrentPolyominoSizeToConsider - 1];
-
-  std::size_t tile_start_idx = 0;
-  if (current_index > 0 && kCurrentPolyominoSizeToConsider == partition[current_index-1]) {
-    tile_start_idx = p.back().index;
-  }
-
-  if (kRemainder != kCurrentPolyominoSizeToConsider) {
-    for (std::size_t i = tile_start_idx; i < tiles.size(); ++i) {
-      PolyominoSubsetIndex tile{kCurrentPolyominoSizeToConsider, i};
-      p.push_back(tile);
-      TryAllPossibilitiesForPartition(
-          params, partition, puzzle_configuration_visitor, current_index + 1, p,
-          squares_covered_so_far + kCurrentPolyominoSizeToConsider);
-      p.pop_back();
-    }
-  } else {
-    for (std::size_t i = tile_start_idx; i < tiles.size(); ++i) {
-      PolyominoSubsetIndex tile{kCurrentPolyominoSizeToConsider, i};
-      p.push_back(tile);
-      puzzle_configuration_visitor(p);
-      p.pop_back();
-    }
-  }
-}
-
-std::vector<std::vector<PolyominoSubsetIndex>>
-EnumerateAllPossibilitiesForPartition(const PuzzleParams &params,
-                                      const std::vector<int> &partition
-
-) {
-  std::vector<std::vector<PolyominoSubsetIndex>> result;
-  TryAllPossibilitiesForPartition(params, partition,
-                                  [&](const auto &p) { result.push_back(p); });
-  return result;
+inline bool AcceptConfiguration(const std::vector<PolyominoSubsetIndex> &p) {
+  // for (std::size_t i = 1; i < p.size(); ++i) {
+  //   if (p[i - 1] == p[i]) {
+  //     return false;
+  //   }
+  // }
+  return true;
 }
 
 int main() {
-  constexpr int N = 30;
+  // constexpr int N = 17;
+  // const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
+
+  // std::cout << sizeof(Polyomino<16>) << std::endl;
+
+  
+  
+  // constexpr int N = 29;
+  std::array ps = { RemoveOne(RemoveOne(CreateRectangle<6, 5>(),4),0) };
+
+  static const int N = ps[0].size;
 
   std::vector<std::size_t> candidate_set;
 
-  // const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
-
-  std::array<Polyomino<30>,1> ps = {CreateRectangle<6, 5>()};
-
-
   for (std::size_t idx = 0; idx < ps.size(); ++idx) {
-    // if (ps[idx].num_symmetries() > 1) {
-    //   continue;
-    // }
     candidate_set.push_back(idx);
   }
 
@@ -127,20 +87,31 @@ int main() {
       [&](const auto &polyomino) {
         PuzzleParams params{ps[polyomino]};
         for (const auto &partition : partitions) {
-          auto possibilities =
-              EnumerateAllPossibilitiesForPartition(params, partition);
+
+          std::vector<std::vector<PolyominoSubsetIndex>> input(
+              partition.size());
+          for (std::size_t ii = 0; ii < partition.size(); ++ii) {
+            const auto &tiles =
+                params.possible_tiles_per_size[partition[ii] - 1];
+            for (std::size_t j = 0; j < tiles.size(); ++j) {
+              input[ii].push_back(PolyominoSubsetIndex{
+                  static_cast<std::size_t>(partition[ii]), j});
+            }
+          }
+
+          auto [begin, end] = make_cross_product_iterator(input);
+          std::vector<std::vector<PolyominoSubsetIndex>> possibilities(
+              begin, end);
+
           std::for_each(
               std::execution::par_unseq,
               possibilities.begin(), possibilities.end(),
-              [&](std::vector<PolyominoSubsetIndex> &p) {
-                PreProcessConfiguration(p);
-                if (params.possibilities_for_configuration(p) > 50) {
-                  ++skipped_partitions;
-                  std::cout
-                      << "Skipping configuration with too many possibilities"
-                      << std::endl;
+              /* begin, end, */ [&](std::vector<PolyominoSubsetIndex> p) {
+                if (!AcceptConfiguration(p)) {
                   return;
                 }
+
+                PreProcessConfiguration(p);
 
                 PuzzleSolver solver(params);
                 std::vector<std::size_t> solution;
@@ -161,10 +132,31 @@ int main() {
                     std::cout
                         << solver.decodeSolution(ps[polyomino], solution, p)
                         << "\n";
+
                     std::cout << "Partition=";
                     for (auto t : partition) {
                       std::cout << t << " ";
                     }
+                    std::cout << "\n";
+
+                    std::cout << "game_board(";
+                    std::cout << ps[polyomino].openscad_string() << ");\n";
+                    int max_x = ps[polyomino].max_xy().first + 2;
+                    for (const auto &idx : p) {
+                      const auto &xyc = params.xy_coordinates(idx);
+
+                      std::cout << "polyomino([";
+                      int highest_x = 0;
+                      for (const auto &[x, y] : xyc) {
+                        std::cout << "[" << static_cast<int>(x) + max_x << ","
+                                  << static_cast<int>(y) << "],";
+                        highest_x =
+                            std::max(highest_x, static_cast<int>(x) + max_x);
+                      }
+                      max_x = highest_x + 2;
+                      std::cout << "]);\n";
+                    }
+
                     std::cout << std::endl;
                   } else {
                     tl_most_difficult = most_difficult;

@@ -11,11 +11,11 @@
 #include <optional>
 #include <vector>
 
-constexpr std::size_t kMaxPolyominoSize = 6;
+constexpr std::size_t kMaxPolyominoSize = 8;
 extern const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize>
     kPrecomputedPolyminosMatchSet;
-extern const std::array<std::vector<std::string>, kMaxPolyominoSize>
-    kPrecomputedPolyominosAsString;
+extern const std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, kMaxPolyominoSize>
+    kPrecomputedPolyominosTypeErased;
 extern const std::array<std::string, 14> kColors;
 
 struct SolutionStats {
@@ -75,7 +75,7 @@ struct PuzzleParams {
 
   const std::vector<BitMaskType> &
   operator[](PolyominoSubsetIndex idx) const noexcept;
-  const std::string &display_string(PolyominoSubsetIndex idx) const noexcept;
+  const std::vector<std::pair<int8_t, int8_t>> &xy_coordinates (PolyominoSubsetIndex idx) const noexcept;
 
   std::size_t N;
   std::array<std::vector<Tile>, kPrecomputedPolyminosMatchSet.size()>
