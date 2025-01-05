@@ -7,9 +7,11 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <execution>
 #include <iostream>
+#include <iterator>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -23,8 +25,8 @@ inline bool AcceptPartition(const std::vector<int> &partition, int N) {
   if (partition[0] > kMaxPolyominoSize) {
     return false;
   }
-  return std::count_if(partition.begin(), partition.end(), [](int i) { return i != 1; }) <= 5;
-  // return (partition.size() <= 5);
+  // return std::count_if(partition.begin(), partition.end(), [](int i) { return i != 1; }) <= 4;
+  return (partition.size() <= 4);
   return true;
 }
 
@@ -38,17 +40,16 @@ inline bool AcceptConfiguration(const std::vector<PolyominoSubsetIndex> &p) {
 }
 
 int main() {
-  // constexpr int N = 17;
+  // constexpr int N = 16;
   // const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
 
   // std::cout << sizeof(Polyomino<16>) << std::endl;
 
   
   
-  // constexpr int N = 29;
-  std::array ps = { RemoveOne(RemoveOne(CreateRectangle<6, 5>(),4),0) };
-
-  static const int N = ps[0].size;
+  constexpr int N = 29;
+  std::array ps = { RemoveOne(CreateRectangle<6, 5>(),0) };
+  // static const int N = ps[0].size;
 
   std::vector<std::size_t> candidate_set;
 
@@ -99,7 +100,10 @@ int main() {
             }
           }
 
+          // std::this_thread::sleep_for(std::chrono::seconds(100));
+
           auto [begin, end] = make_cross_product_iterator(input);
+          std::cout << std::distance(begin, end) << std::endl;
           std::vector<std::vector<PolyominoSubsetIndex>> possibilities(
               begin, end);
 

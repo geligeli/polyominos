@@ -5,10 +5,12 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <iostream>
 #include <optional>
+#include <thread>
 #include <vector>
 
 constexpr std::size_t kMaxPolyominoSize = 8;
