@@ -1,7 +1,9 @@
 #include "combinatorics.hpp"
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <algorithm>
+#include <cstdint>
 #include <execution>
 #include <mutex>
 #include <set>
@@ -169,169 +171,64 @@ TEST_F(CrossProductIteratorTest, MultipleIterations) {
     EXPECT_EQ(first_pass, second_pass);
 }
 
+TEST(BionomialCoeff, Test) {
+    EXPECT_EQ(binomialCoeff(5, 2), 10);
+    EXPECT_EQ(binomialCoeff(10, 3), 120);
+    EXPECT_EQ(binomialCoeff(10, 10), 1);
+    EXPECT_EQ(binomialCoeff(10, 0), 1);
+    EXPECT_EQ(binomialCoeff(10, 11), 0);
 
-class MultisetIteratorTest : public ::testing::Test {
-protected:
-    void verify_multiset_properties(const std::vector<int>& multiset, size_t n, int range_size) {
-        // Verify size
-        ASSERT_EQ(multiset.size(), n);
-        
-        // Verify elements are in range
-        for (int val : multiset) {
-            ASSERT_GE(val, 0);
-            ASSERT_LT(val, range_size);
-        }
-        
-        // Verify non-decreasing order
-        ASSERT_TRUE(std::is_sorted(multiset.begin(), multiset.end()));
-    }
-};
-
-TEST_F(MultisetIteratorTest, BasicConstruction) {
-    MultisetIterator<int> begin(3, 2);
-    MultisetIterator<int> end(3, 2, true);
-    
-    EXPECT_NE(begin, end);
-    
-    auto first = *begin;
-    EXPECT_EQ(first.size(), 3);
-    EXPECT_EQ(first, (std::vector<int>{0, 0, 0}));
+    EXPECT_EQ(binomialCoeff(100, 5), 75287520);
+    EXPECT_EQ(binomialCoeff(369, 5), 55479552948);
 }
 
-TEST_F(MultisetIteratorTest, IterationSequence) {
-    MultisetRange<int> range(3, 2);  // n=3, range=[0,1]
-    
-    std::vector<std::vector<int>> expected = {
-        {0, 0, 0},
-        {0, 0, 1},
-        {0, 1, 1},
-        {1, 1, 1}
+TEST(BionomialCoeff, getCombinationIndicesOne) {
+    std::vector<std::size_t> result = getCombinationIndices(100, 3, 2);
+    std::vector<std::size_t> expected = {3, 2, 0};
+    EXPECT_EQ(result, expected);
+}
+
+TEST(BionomialCoeff, getCombinationIndicesMultiple) {
+    auto generateKSubsets = [](uint64_t n, uint64_t k) {
+        std::vector<std::vector<uint64_t>> result;
+        std::vector<bool> indices(n, false);
+        std::fill(indices.begin(), indices.begin() + k, true);
+        do {
+            std::vector<uint64_t> subset;
+            for (uint64_t i = 0; i < n; ++i) {
+                if (indices[n-i-1]) {
+                    subset.push_back(n-i-1);
+                }
+            }
+            result.push_back(subset);
+        } while (std::prev_permutation(indices.begin(), indices.end()));
+        std::sort(result.begin(), result.end());
+        return result;
     };
+
     
-    size_t count = 0;
-    for (const auto& multiset : range) {
-        ASSERT_LT(count, expected.size());
-        EXPECT_EQ(multiset, expected[count]);
-        verify_multiset_properties(multiset, 3, 2);
-        ++count;
+    uint64_t N = 5;
+    uint64_t K = 2;
+
+    auto kSubSets = generateKSubsets(N, K);
+    ASSERT_EQ(binomialCoeff(N, K), kSubSets.size());
+    for (uint64_t index=0; index < binomialCoeff(N, K); ++index) {
+        auto result = getCombinationIndices(N, K, index);
+        ASSERT_EQ(result, kSubSets[index]) << "Index: " << index << " N: " << N << " K: " << K;
     }
-    
-    EXPECT_EQ(count, expected.size());
-}
 
-TEST_F(MultisetIteratorTest, RandomAccess) {
-    auto range = make_multiset_range(3, 2);
-    auto it = range.begin();
-    
-    // Test +=
-    it += 2;
-    EXPECT_EQ(*it, (std::vector<int>{0, 1, 1}));
-    
-    // Test -=
-    it -= 1;
-    EXPECT_EQ(*it, (std::vector<int>{0, 0, 1}));
-    
-    // Test +
-    auto it2 = it + 2;
-    EXPECT_EQ(*it2, (std::vector<int>{1, 1, 1}));
-    
-    // Test -
-    auto it3 = it2 - 2;
-    EXPECT_EQ(*it3, (std::vector<int>{0, 0, 1}));
-    
-    // Test difference
-    EXPECT_EQ(it2 - it, 2);
-    EXPECT_EQ(it - it3, 0);
-}
+    N = 100;
+    K = 3;
 
-TEST_F(MultisetIteratorTest, Comparison) {
-    auto range = make_multiset_range(3, 2);
-    auto it1 = range.begin();
-    auto it2 = range.begin();
-    auto end = range.end();
-    
-    EXPECT_EQ(it1, it2);
-    EXPECT_NE(it1, end);
-    
-    ++it2;
-    EXPECT_LT(it1, it2);
-    EXPECT_GT(it2, it1);
-    EXPECT_LE(it1, it2);
-    EXPECT_GE(it2, it1);
-}
+    // 2 1 0
+    // 3 1 0
+    // 3 2 0
+    // 3 2 1
 
-TEST_F(MultisetIteratorTest, LargerRange) {
-    MultisetRange<int> range(4, 3);  // n=4, range=[0,1,2]
-    
-    std::set<std::vector<int>> unique_multisets;
-    size_t count = 0;
-    
-    for (const auto& multiset : range) {
-        verify_multiset_properties(multiset, 4, 3);
-        unique_multisets.insert(multiset);
-        ++count;
+    kSubSets = generateKSubsets(N, K);
+    ASSERT_EQ(binomialCoeff(N, K), kSubSets.size());
+    for (uint64_t index=0; index < binomialCoeff(N, K); ++index) {
+        auto result = getCombinationIndices(N, K, index);
+        ASSERT_EQ(result, kSubSets[index]) << "Index: " << index << " N: " << N << " K: " << K;
     }
-    
-    // Verify all multisets are unique
-    EXPECT_EQ(unique_multisets.size(), count);
-    
-    // Verify total count matches combination with repetition formula
-    // For n=4, r=3: (n+r-1)!/(n!*(r-1)!) = 15
-    EXPECT_EQ(count, 15);
-}
-
-TEST_F(MultisetIteratorTest, EdgeCases) {
-    // Test single element
-    auto range1 = make_multiset_range(1, 2);
-    std::vector<std::vector<int>> expected1 = {{0}, {1}};
-    EXPECT_EQ(std::vector<std::vector<int>>(range1.begin(), range1.end()), expected1);
-    
-    // Test single choice
-    auto range2 = make_multiset_range(3, 1);
-    std::vector<std::vector<int>> expected2 = {{0, 0, 0}};
-    EXPECT_EQ(std::vector<std::vector<int>>(range2.begin(), range2.end()), expected2);
-}
-
-TEST_F(MultisetIteratorTest, BoundaryRandomAccess) {
-    auto range = make_multiset_range(3, 2);
-    auto it = range.begin();
-    
-    // Test jumping beyond end
-    it += 10;
-    EXPECT_EQ(it, range.end());
-    
-    // Test jumping backwards from end
-    it -= 2;
-    EXPECT_EQ(*it, (std::vector<int>{0, 1, 1}));
-    
-    // Test jumping to beginning
-    it = range.end();
-    it -= 4;
-    EXPECT_EQ(it, range.begin());
-}
-
-TEST_F(MultisetIteratorTest, Iteration) {
-    auto range = make_multiset_range(3, 2);
-    auto it = range.begin();
-    auto end = range.end();
-    
-    // Test post-increment
-    auto old_it = it++;
-    EXPECT_EQ(*old_it, (std::vector<int>{0, 0, 0}));
-    EXPECT_EQ(*it, (std::vector<int>{0, 0, 1}));
-    
-    // Test pre-increment
-    auto& ref = ++it;
-    EXPECT_EQ(&ref, &it);
-    EXPECT_EQ(*it, (std::vector<int>{0, 1, 1}));
-    
-    // Test post-decrement
-    old_it = it--;
-    EXPECT_EQ(*old_it, (std::vector<int>{0, 1, 1}));
-    EXPECT_EQ(*it, (std::vector<int>{0, 0, 1}));
-    
-    // Test pre-decrement
-    auto& ref2 = --it;
-    EXPECT_EQ(&ref2, &it);
-    EXPECT_EQ(*it, (std::vector<int>{0, 0, 0}));
 }

@@ -1,6 +1,7 @@
 cc_library(
     name = "combinatorics",
     hdrs = ["combinatorics.hpp"],
+    srcs = ["combinatorics.cpp"],
     deps = []
 )
 
