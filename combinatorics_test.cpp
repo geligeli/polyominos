@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <execution>
+#include <iterator>
 #include <mutex>
 #include <set>
 #include <string>
@@ -230,5 +231,51 @@ TEST(BionomialCoeff, getCombinationIndicesMultiple) {
     for (uint64_t index=0; index < binomialCoeff(N, K); ++index) {
         auto result = getCombinationIndices(N, K, index);
         ASSERT_EQ(result, kSubSets[index]) << "Index: " << index << " N: " << N << " K: " << K;
+    }
+}
+
+TEST(BionomialCoeff, SubSetsSequence) {
+    const uint64_t N = 40;
+    const uint64_t K = 4;
+    auto seq = SubSetsSequence(N, K);
+    uint64_t idx = 0;
+    for (const auto& subset : seq) {
+        SCOPED_TRACE("Index: " + std::to_string(idx));
+        ASSERT_EQ(subset.size(), K);
+        std::vector<std::size_t> expected = getCombinationIndices(N, K, idx);
+        ASSERT_EQ(subset, expected);
+        ++idx;
+    }
+}
+
+TEST(BionomialCoeff, DecreaseKSubsets) {
+    std::vector<std::size_t> indices = { 39, 2,1,0 };
+    DecreaseKSubsets(indices);
+    std::vector<std::size_t> expected = { 38, 37, 36, 35 };
+    ASSERT_EQ(indices, expected);
+}
+
+TEST(BionomialCoeff, SubSetsSequenceDecrease) {
+    const uint64_t N = 40;
+    const uint64_t K = 4;
+    auto seq = SubSetsSequence(N, K);
+    uint64_t idx = binomialCoeff(N, K) - 1;
+
+    for (auto it = seq.end(); --it != seq.begin(); --idx) {
+        SCOPED_TRACE("Index: " + std::to_string(idx));
+        std::vector<std::size_t> expected = getCombinationIndices(N, K, idx);
+        ASSERT_EQ(*it, expected);
+    }
+}
+
+
+TEST(BionomialCoeff, UseSubsetSequenceAsRange) {
+    const uint64_t N = 100000;
+    const uint64_t K = 1;
+    auto seq = SubSetsSequence(N, K);
+    uint64_t idx = 0;
+    for (const auto& subset : seq) {
+        ASSERT_EQ(subset[0], idx);
+        ++idx;
     }
 }
