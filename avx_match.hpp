@@ -19,24 +19,7 @@ void set_bit(__m512i &bitmask, int x, int y, bool second_grid);
 
 class BoardMatcher {
 public:
-  inline BoardMatcher(__m256i board, std::pair<uint8_t, uint8_t> max_xy) : m_board(board), m_max_xy(max_xy) {
-    asm(
-        R"(
-      VPTESTMB %[mask], %[board], %[board]
-      KMOVD %[cnt], %[mask]
-      POPCNT %[cnt], %[cnt]
-    )"
-        : [mask] "=Yk"(mask), [cnt] "=r"(cnt)
-        : [board] "v"(board)
-        :);
-    cnt = (cnt + 7) / 8;
-    std::memset(data, 0, cnt * 8);
-    _mm256_mask_compressstoreu_epi8(data, mask, board);
-    per_entry_popcnt[0] = 0;
-    for (int c = 1; c < cnt; ++c) {
-      per_entry_popcnt[c] = std::popcount(data[c-1]) + per_entry_popcnt[c-1];
-    }
-  }
+  BoardMatcher(__m256i board, std::pair<uint8_t, uint8_t> max_xy);
 
   inline uint64_t compress(__m256i match) const {
     uint64_t tmp[4];

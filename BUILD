@@ -1,8 +1,11 @@
+load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
 cc_library(
     name = "combinatorics",
-    hdrs = ["combinatorics.hpp"],
     srcs = ["combinatorics.cpp"],
-    deps = []
+    hdrs = ["combinatorics.hpp"],
+    deps = [],
 )
 
 cc_test(
@@ -10,8 +13,8 @@ cc_test(
     srcs = ["combinatorics_test.cpp"],
     deps = [
         ":combinatorics",
-        "@googletest//:gtest_main",
-    ]
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 cc_library(
@@ -52,7 +55,7 @@ cc_test(
     ],
     deps = [
         ":dl_matrix",
-        "@googletest//:gtest_main",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -65,8 +68,8 @@ cc_library(
         "puzzle_solver.hpp",
     ],
     deps = [
-        ":dl_matrix",
         ":avx_match",
+        ":dl_matrix",
         ":polyominos",
     ],
 )
@@ -78,7 +81,7 @@ cc_test(
     ],
     deps = [
         ":puzzle_solver",
-        "@googletest//:gtest_main",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -99,12 +102,12 @@ cc_binary(
         "puzzle_maker.cpp",
     ],
     deps = [
-        ":combinatorics",
         ":avx_match",
-        ":puzzle_solver",
+        ":combinatorics",
         ":loggers",
         ":partition_function",
         ":polyominos",
+        ":puzzle_solver",
     ],
 )
 
@@ -116,6 +119,7 @@ cc_library(
     hdrs = [
         "avx_match.hpp",
     ],
+    copts = ["-masm=intel"],
     deps = [
         ":polyominos",
     ],
@@ -129,7 +133,7 @@ cc_test(
     deps = [
         ":avx_match",
         ":polyominos",
-        "@googletest//:gtest_main",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -150,5 +154,40 @@ sh_binary(
     srcs = ["deploy.sh"],
     data = [
         ":puzzle_maker",
+    ],
+)
+
+# load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_compile")
+# load("@rules_proto//proto:defs.bzl", "proto_library")
+# load("@protobuf//bazel:proto_library.bzl", "proto_library")
+
+# load("@com_github_grpc_grpc//bazel:grpc_build_system.bzl", "grpc_proto_library")
+# load("@grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+
+proto_library(
+    name = "helloworld_proto",
+    srcs = ["helloworld.proto"],
+)
+
+cc_proto_library(
+    name = "helloworld_cc_proto",
+    deps = [":helloworld_proto"],
+)
+
+cc_grpc_library(
+    name = "helloworld_cc_grpc",
+    srcs = [":helloworld_proto"],
+    grpc_only = True,
+    deps = [":helloworld_cc_proto"],
+)
+
+cc_binary(
+    name = "greeter_server",
+    srcs = ["greeter_server.cpp"],
+    defines = ["BAZEL_BUILD"],
+    deps = [
+        ":helloworld_cc_grpc",
+        # http_archive made this label available for binding
+        "@com_github_grpc_grpc//:grpc++",
     ],
 )

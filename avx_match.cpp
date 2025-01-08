@@ -107,7 +107,8 @@ int _find_matches_avx512_16x16(__m256i const &board, __m256i const &candidate,
   // uint32_t num_outer_loops = 16 - max_xy_candidate.second;
   // uint32_t num_inner_loops = (16 - max_xy_candidate.first) / 2;
   uint32_t num_outer_loops = max_xy_board.second - max_xy_candidate.second + 1;
-  uint32_t num_inner_loops = (max_xy_board.first - max_xy_candidate.first) / 2 + 1;
+  uint32_t num_inner_loops =
+      (max_xy_board.first - max_xy_candidate.first) / 2 + 1;
 
   __m256i *result_ptr = &results[0];
 
@@ -189,4 +190,24 @@ find_matches_avx512(BoardMatcher const &board,
   std::sort(results.begin(), results.end());
   results.erase(std::unique(results.begin(), results.end()), results.end());
   return results;
+}
+
+BoardMatcher::BoardMatcher(__m256i board, std::pair<uint8_t, uint8_t> max_xy)
+    : m_board(board), m_max_xy(max_xy) {
+  asm(
+      R"(
+      VPTESTMB %[mask], %[board], %[board]
+      KMOVD %[cnt], %[mask]
+      POPCNT %[cnt], %[cnt]
+    )"
+      : [mask] "=Yk"(mask), [cnt] "=r"(cnt)
+      : [board] "v"(board)
+      :);
+  cnt = (cnt + 7) / 8;
+  std::memset(data, 0, cnt * 8);
+  _mm256_mask_compressstoreu_epi8(data, mask, board);
+  per_entry_popcnt[0] = 0;
+  for (int c = 1; c < cnt; ++c) {
+    per_entry_popcnt[c] = std::popcount(data[c - 1]) + per_entry_popcnt[c - 1];
+  }
 }

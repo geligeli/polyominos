@@ -1,10 +1,13 @@
 
 build --cxxopt=-std=c++20
 build --linkopt=-ltbb
-build --copt=-masm=intel --copt=-march=native --copt=-O3 --copt=-DNDEBUG --copt=-flto
+# build --enable_workspace
+build --copt=-march=native --copt=-O3 --copt=-DNDEBUG
+# --copt=-flto
 # build --disk_cache=path/to/build/cache
 
-build:profile --copt=-masm=intel
+# build:profile --copt=-masm=intel
+
 build:profile --copt=-march=native
 build:profile --copt=-O3
 build:profile --copt=-DNDEBUG
