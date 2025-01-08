@@ -6,7 +6,7 @@
         {
             "label": "dbg",
             "type": "shell",
-            "command": "bazel build -c dbg --copt=-O0 //:puzzle_solver_test",
+            "command": "bazel build -c dbg --copt=-O0 //:puzzle_maker",
             "problemMatcher": [],
             "group": {
                 "kind": "build",

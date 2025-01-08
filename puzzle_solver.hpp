@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t kMaxPolyominoSize = 8;
+constexpr std::size_t kMaxPolyominoSize = 9;
 extern const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize>
     kPrecomputedPolyminosMatchSet;
 extern const std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, kMaxPolyominoSize>
@@ -57,13 +57,13 @@ struct PuzzleParams {
         auto result =
             find_matches_avx512(matcher, kPrecomputedPolyminosMatchSet[i][j]);
         std::vector<BitMaskType> result_masks(result.begin(), result.end());
-        if (result.size() > 0) {
+        if (result_masks.size() > 0) {
           PolyominoIndex idx{i + 1, j};
           PuzzleParams::Tile tile{idx, std::move(result_masks)};
           possible_tiles_per_size[i].push_back(std::move(tile));
         }
       }
-    }
+    }   
   }
 
   struct Tile {

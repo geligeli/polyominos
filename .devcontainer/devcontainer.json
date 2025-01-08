@@ -14,5 +14,9 @@
         }
     },
     // For PERF
-    "privileged": true
+    "privileged": true,
+    // bind mounts for credentials
+    "mounts": [
+        "source=/home/geli/.config,target=/home/geli/.config,type=bind,consistency=cached"
+    ]
 }

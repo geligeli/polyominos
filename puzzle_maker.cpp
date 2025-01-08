@@ -12,6 +12,7 @@
 #include <execution>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -25,8 +26,8 @@ inline bool AcceptPartition(const std::vector<int> &partition, int N) {
   if (partition[0] > kMaxPolyominoSize) {
     return false;
   }
-  // return std::count_if(partition.begin(), partition.end(), [](int i) { return i != 1; }) <= 4;
-  return (partition.size() <= 4);
+  // return std::count_if(partition.begin(), partition.end(), [](int i) { return i != 1; }) == 6;
+  // return (partition.size() <= 4);
   return true;
 }
 
@@ -40,16 +41,15 @@ inline bool AcceptConfiguration(const std::vector<PolyominoSubsetIndex> &p) {
 }
 
 int main() {
-  // constexpr int N = 16;
-  // const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
+  constexpr int N = 17;
+  const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
 
   // std::cout << sizeof(Polyomino<16>) << std::endl;
 
-  
-  
-  constexpr int N = 29;
-  std::array ps = { RemoveOne(CreateRectangle<6, 5>(),0) };
-  // static const int N = ps[0].size;
+  // constexpr int N = 30;
+  // std::array ps = {RemoveOne(CreateRectangle<6, 5>(), 1)};
+  // // std::array ps = {CreateRectangle<6, 5>()};
+  // static int N = ps[0].size;
 
   std::vector<std::size_t> candidate_set;
 
@@ -71,6 +71,12 @@ int main() {
                                     return !AcceptPartition(partition, N);
                                   }),
                    partitions.end());
+  // last step difficulty bounded by size of the smallest piece.
+  std::sort(
+      partitions.begin(), partitions.end(),
+      [](const auto &a, const auto &b) { return a.back() > b.back(); }
+  );
+
 
   thread_local double tl_most_difficult{};
 
@@ -83,34 +89,40 @@ int main() {
   std::chrono::steady_clock::time_point start_time =
       std::chrono::steady_clock::now();
   std::for_each(
-      // std::execution::par_unseq,
-      candidate_set.begin(), candidate_set.end(),
-      [&](const auto &polyomino) {
-        PuzzleParams params{ps[polyomino]};
+      std::execution::par_unseq,
+      candidate_set.begin(), candidate_set.end(), [&](const auto &polyomino) {
+        const PuzzleParams params{ps[polyomino]};
         for (const auto &partition : partitions) {
-
-          std::vector<std::vector<PolyominoSubsetIndex>> input(
-              partition.size());
-          for (std::size_t ii = 0; ii < partition.size(); ++ii) {
-            const auto &tiles =
-                params.possible_tiles_per_size[partition[ii] - 1];
-            for (std::size_t j = 0; j < tiles.size(); ++j) {
-              input[ii].push_back(PolyominoSubsetIndex{
-                  static_cast<std::size_t>(partition[ii]), j});
-            }
+          std::map<int, int> partition_map;
+          for (auto p : partition) {
+            partition_map[p]++;
           }
 
-          // std::this_thread::sleep_for(std::chrono::seconds(100));
+          // using RangeType = SubSetsRange;
+          using RangeType = MultiSetsRange;
+          std::vector<RangeType> sequences;
 
-          auto [begin, end] = make_cross_product_iterator(input);
-          std::cout << std::distance(begin, end) << std::endl;
-          std::vector<std::vector<PolyominoSubsetIndex>> possibilities(
-              begin, end);
 
+          for (const auto [size, count] : partition_map) {
+            uint64_t num_tiles =
+                params.possible_tiles_per_size[size - 1].size();
+            sequences.push_back(
+                RangeType{num_tiles, static_cast<uint64_t>(count)});
+          }
+          // need to reverse the order of the sequences because partition is
+          // ordered from largest to smallest and the indices into the output of
+          // SubSetsRangeProduct are in the opposite order.
+          std::reverse(sequences.begin(), sequences.end());
+          RangeProductRange<RangeType> r(std::move(sequences));
           std::for_each(
-              std::execution::par_unseq,
-              possibilities.begin(), possibilities.end(),
-              /* begin, end, */ [&](std::vector<PolyominoSubsetIndex> p) {
+              //  std::execution::par_unseq,
+               r.begin(), r.end(), [&](std::vector<uint64_t> idx) {
+                std::vector<PolyominoSubsetIndex> p(idx.size());
+                for (std::size_t i = 0; i < idx.size(); ++i) {
+                  p[i] = PolyominoSubsetIndex{
+                      static_cast<std::size_t>(partition[i]), idx[i]};
+                }                
+
                 if (!AcceptConfiguration(p)) {
                   return;
                 }
@@ -127,7 +139,6 @@ int main() {
 
                 if (difficulty > tl_most_difficult) {
                   tl_most_difficult = difficulty;
-
                   std::lock_guard lk(best_stats_mutex);
                   if (difficulty > most_difficult) {
                     most_difficult = difficulty;

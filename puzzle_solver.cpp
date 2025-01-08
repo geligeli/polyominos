@@ -19,18 +19,18 @@
 
 template <int N> struct PrecomputedPolyminosMatchSet {
 
-  template <std::size_t BOARD_SIZE>
-  static const std::function<
-      std::vector<BitMaskType>(const Polyomino<BOARD_SIZE> &, int)> &
-  cpp_matchers() {
-    static const std::function<std::vector<BitMaskType>(
-        const Polyomino<BOARD_SIZE> &, int)>
-        val = [](const Polyomino<BOARD_SIZE> &board, int i) {
-          return FindMatchPatterns(board,
-                                   PrecomputedPolyminosSet<N>::polyminos()[i]);
-        };
-    return val;
-  }
+  // template <std::size_t BOARD_SIZE>
+  // static const std::function<
+  //     std::vector<BitMaskType>(const Polyomino<BOARD_SIZE> &, int)> &
+  // cpp_matchers() {
+  //   static const std::function<std::vector<BitMaskType>(
+  //       const Polyomino<BOARD_SIZE> &, int)>
+  //       val = [](const Polyomino<BOARD_SIZE> &board, int i) {
+  //         return FindMatchPatterns(board,
+  //                                  PrecomputedPolyminosSet<N>::polyminos()[i]);
+  //       };
+  //   return val;
+  // }
 
   static const std::vector<CandidateMatchBitmask> &matchers() {
     static const std::vector<CandidateMatchBitmask> val = []() {
@@ -146,7 +146,7 @@ PuzzleSolver::PuzzleSolver(const PuzzleParams &params) : params(params) {}
 bool PuzzleSolver::Solve(
     const std::vector<PolyominoSubsetIndex> &candidate_tiles,
     std::vector<std::size_t> &solution, Algoritm algo) const noexcept {
-  if (algo == Algoritm::DLX) {
+  if (algo != Algoritm::DLX) {
     std::vector<uint64_t> v;
     uint64_t tile_marker = uint64_t{1} << params.N;
     std::vector<std::size_t> row_idx_to_mask_index_of_tile;

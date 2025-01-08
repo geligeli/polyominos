@@ -144,3 +144,11 @@ cc_binary(
         "@google_benchmark//:benchmark",
     ],
 )
+
+sh_binary(
+    name = "deploy",
+    srcs = ["deploy.sh"],
+    data = [
+        ":puzzle_maker",
+    ],
+)
