@@ -1,22 +1,27 @@
 FROM silkeh/clang:latest
 
+FROM nvidia/cuda:12.3.2-devel-ubuntu22.04 
+# 
+
 ARG uid=1000
 ARG user=geli
 ARG gid=1000
 ARG group=geli
 
-RUN wget -qO- https://files.openscad.org/OBS-Repository-Key.pub | tee /etc/apt/trusted.gpg.d/obs-openscad-nightly.asc
-RUN echo 'deb https://download.opensuse.org/repositories/home:/t-paul/Debian_12/ ./' > /etc/apt/sources.list.d/openscad.list 
+# RUN wget -qO- https://files.openscad.org/OBS-Repository-Key.pub | tee /etc/apt/trusted.gpg.d/obs-openscad-nightly.asc
+# RUN echo 'deb https://download.opensuse.org/repositories/home:/t-paul/Debian_12/ ./' > /etc/apt/sources.list.d/openscad.list 
 
 RUN apt-get update -y
 RUN apt-get upgrade -y
 
-RUN apt install libtbb-dev -y
-RUN apt install git -y
-RUN apt install clangd -y
-RUN apt install linux-perf -y
-RUN apt install sudo -y
-RUN apt install openscad-nightly -y
+RUN apt install -y \
+    clangd \
+    git \
+    libtbb-dev \
+    linux-tools-common \
+    openscad \
+    sudo \
+    wget
 
 RUN wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
 RUN wget -O /usr/local/bin/buildifier https://github.com/bazelbuild/buildtools/releases/download/v7.3.1/buildifier-linux-amd64
@@ -28,7 +33,7 @@ RUN apt install texinfo libreadline-dev libmpc-dev python-dev-is-python3 -y
 RUN cd gdb-15.2 && \
     mkdir build && \
     cd build && \
-     ../configure --prefix=/usr --with-system-readline --with-python=/usr/bin/python3.11 && \
+     ../configure --prefix=/usr --with-system-readline --with-python=/usr/bin/python3.10 && \
      make -j 32 && \
      make -C gdb install && \
     cd ../.. && \
