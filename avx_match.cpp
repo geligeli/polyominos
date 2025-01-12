@@ -1,5 +1,7 @@
 #include "avx_match.hpp"
 
+#include <cstdint>
+#include <cstring>
 #include <immintrin.h>
 
 bool get_bit(const __m256i &bitmask, int x, int y) {
@@ -13,6 +15,32 @@ void set_bit(__m256i &bitmask, int x, int y) {
   const auto int64_idx = (bit_index) / 64;
   bitmask[int64_idx] |= (int64_t{1} << (bit_index % 64));
 }
+
+std::string BitmaskToString(const __m256i &bitmask) {
+  constexpr int kNCols = 16 + 1;
+  std::string out_buffer(16 * kNCols, ' ');
+  // 17 columns
+  auto at_xy = [&](int x, int y) -> char & {
+    return out_buffer[y * kNCols + x];
+  };
+  auto at_xy_grid = [&](int x, int y) -> char & { return at_xy(x, y); };
+  auto at_xy_bitmask = [&](int x, int y) -> bool {
+    const auto bit_index = y * 16 + x;
+    const auto int64_idx = (bit_index) / 64;
+    return bitmask[int64_idx] & (int64_t{1} << (bit_index % 64));
+  };
+  for (int y = 0; y < 16; y++) {
+    at_xy(16, y) = '\n';
+  }
+  for (int y = 0; y < 16; y++) {
+    for (int x = 0; x < 16; x++) {
+      at_xy_bitmask(x, y) ? at_xy_grid(x, y) = '1' : at_xy_grid(x, y) = '0';
+    }
+  }
+  return out_buffer;
+};
+
+#ifdef USE_AVX512
 
 bool get_bit(const __m512i &bitmask, int x, int y, bool second_grid) {
   const auto bit_index = y * 16 + x;
@@ -51,30 +79,6 @@ std::string BitmaskToString(const __m512i &bitmask) {
     for (int x = 0; x < 16; x++) {
       at_xy_bitmask2(x, y) ? at_xy_grid2(x, y) = '1' : at_xy_grid2(x, y) = '0';
       at_xy_bitmask1(x, y) ? at_xy_grid1(x, y) = '1' : at_xy_grid1(x, y) = '0';
-    }
-  }
-  return out_buffer;
-};
-
-std::string BitmaskToString(const __m256i &bitmask) {
-  constexpr int kNCols = 16 + 1;
-  std::string out_buffer(16 * kNCols, ' ');
-  // 17 columns
-  auto at_xy = [&](int x, int y) -> char & {
-    return out_buffer[y * kNCols + x];
-  };
-  auto at_xy_grid = [&](int x, int y) -> char & { return at_xy(x, y); };
-  auto at_xy_bitmask = [&](int x, int y) -> bool {
-    const auto bit_index = y * 16 + x;
-    const auto int64_idx = (bit_index) / 64;
-    return bitmask[int64_idx] & (int64_t{1} << (bit_index % 64));
-  };
-  for (int y = 0; y < 16; y++) {
-    at_xy(16, y) = '\n';
-  }
-  for (int y = 0; y < 16; y++) {
-    for (int x = 0; x < 16; x++) {
-      at_xy_bitmask(x, y) ? at_xy_grid(x, y) = '1' : at_xy_grid(x, y) = '0';
     }
   }
   return out_buffer;
@@ -175,16 +179,103 @@ jnz .outer_loop%=
   return result_ptr - &results[0];
 }
 
+#else
+
+void _mask_compressstoreu_epi8(uint64_t (&output)[4], __mmask32 k, __m256i a) {
+  std::array<uint8_t, 32> a_array;
+  std::array<uint8_t, 32> out_array = {};
+
+  std::memcpy(&a_array, &a, sizeof(a_array));
+  uint8_t *src_addr = a_array.data();
+  uint8_t *dst_addr = out_array.data();
+  while (k != 0) {
+    if (k & 1) {
+      *dst_addr = *src_addr;
+      ++dst_addr;
+    }
+    ++src_addr;
+    k >>= 1;
+  }
+  std::memcpy(output, out_array.data(), sizeof(output));
+}
+
+namespace {
+
+int _find_matches_avx2(__m256i const &board, __m256i const &candidate,
+                       std::pair<uint8_t, uint8_t> max_xy_board,
+                       std::pair<uint8_t, uint8_t> max_xy_candidate,
+                       __m256i (&results)[256]) {
+  if (max_xy_candidate.first > max_xy_board.first) {
+    return 0;
+  }
+  if (max_xy_candidate.second > max_xy_board.second) {
+    return 0;
+  }
+
+  uint32_t num_outer_loops = max_xy_board.second - max_xy_candidate.second + 1;
+  uint32_t num_inner_loops = max_xy_board.first - max_xy_candidate.first + 1;
+
+  int num_results = 0;
+
+  constexpr auto shift_left = [](__m256i a) -> __m256i {
+    std::array<uint16_t, 16> working_set;   
+    std::memcpy(&working_set, &a, sizeof(a));
+    for (int i=0; i<16; i++) {
+        working_set[i] <<=1;
+    }
+    return std::bit_cast<__m256i>(working_set);
+};
+
+
+  constexpr auto shift_down = [](__m256i a) -> __m256i{
+    std::array<uint16_t, 16> src;
+    std::array<uint16_t, 16> result;
+    result[0]=0;
+    std::memcpy(&src, &a, sizeof(a));
+    for (int i=1; i<16; ++i) {
+      result[i] = src[i-1];
+    }
+    return std::bit_cast<__m256i>(result);
+  };
+  
+  __m256i c = candidate;
+  for (uint32_t i = 0; i < num_outer_loops; ++i) {
+    __m256i c_inner = c;
+    for (uint32_t j = 0; j < num_inner_loops; ++j) {
+      if ((c_inner[0] & ~board[0]) == 0 &&
+          (c_inner[1] & ~board[1]) == 0 &&
+          (c_inner[2] & ~board[2]) == 0 &&
+          (c_inner[3] & ~board[3]) == 0) {
+        results[num_results++] = c_inner;
+      }
+      c_inner=shift_left(c_inner);
+    }
+    c = shift_down(c);
+  }
+  return num_results;
+}
+
+} // namespace
+
+#endif
+
 std::vector<uint64_t>
-find_matches_avx512(BoardMatcher const &board,
+find_matches_avx(BoardMatcher const &board,
                     CandidateMatchBitmask const &candidate) {
   auto board_max_xy = board.max_xy();
   std::vector<uint64_t> results;
   for (int i = 0; i < candidate.cnt; ++i) {
     __m256i tmp[256];
+
+#ifdef USE_AVX512
     auto num_matches =
         _find_matches_avx512_16x16(board.board(), candidate.bitmasks[i],
                                    board_max_xy, candidate.max_xy[i], tmp);
+#else
+    auto num_matches =_find_matches_avx2(board.board(), candidate.bitmasks[i],
+                                   board_max_xy, candidate.max_xy[i], tmp);
+#endif
+
     for (int j = 0; j < num_matches; ++j) {
       results.push_back(board.compress(tmp[j]));
     }
@@ -194,8 +285,10 @@ find_matches_avx512(BoardMatcher const &board,
   return results;
 }
 
+
 BoardMatcher::BoardMatcher(__m256i board, std::pair<uint8_t, uint8_t> max_xy)
     : m_board(board), m_max_xy(max_xy) {
+#ifdef USE_AVX512
   asm(
       R"(
       VPTESTMB %[mask], %[board], %[board]
@@ -208,6 +301,19 @@ BoardMatcher::BoardMatcher(__m256i board, std::pair<uint8_t, uint8_t> max_xy)
   cnt = (cnt + 7) / 8;
   std::memset(data, 0, cnt * 8);
   _mm256_mask_compressstoreu_epi8(data, mask, board);
+#else
+  std::array<uint8_t, 32> a = std::bit_cast<std::array<uint8_t, 32>>(board);
+  mask = 0;
+  for (int i = 0; i < 32; ++i) {
+    mask |= a[i] > 0 ? 1 << i : 0;
+  }
+  cnt = std::popcount((uint64_t)board[0]) + std::popcount((uint64_t)board[1]) +
+        std::popcount((uint64_t)board[2]) + std::popcount((uint64_t)board[3]);
+  cnt = (cnt + 7) / 8;
+  std::memset(data, 0, cnt * 8);
+  _mask_compressstoreu_epi8(data, mask, board);
+#endif
+  
   per_entry_popcnt[0] = 0;
   for (std::size_t c = 1; c < cnt; ++c) {
     per_entry_popcnt[c] = std::popcount(data[c - 1]) + per_entry_popcnt[c - 1];

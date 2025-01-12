@@ -337,7 +337,7 @@ FindMatchPatterns(const Polyomino<N> &board,
   static_assert(N > K);
   std::vector<uint64_t> tile_masks;
   const auto [x_max, y_max] = board.max_xy();
-  for (const auto t : tile.symmetries()) {
+  for (const auto& t : tile.symmetries()) {
     for (uint8_t dx = 0; dx <= x_max; ++dx) {
       for (uint8_t dy = 0; dy <= y_max; ++dy) {
         auto mask = TileFitBitMask(board, t, dx, dy);

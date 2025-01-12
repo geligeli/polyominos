@@ -44,16 +44,13 @@ void copy_and_launch(const std::array<std::vector<Tile>, kPrecomputedPolyminosMa
   CUDA_CHECK(cudaMemcpy(tmp.bitmasks, host_bitmasks.data(),  (1+tmp.num_bitmasks) * sizeof(uint64_t), cudaMemcpyHostToDevice));
 
 
-  SolvingState tmp_state;
-  tmp_state.num_tiles = candidates.size();
+  SolvingState tmp_state(candidates.size());
 
   std::vector<int> candidate_tiles(candidates.size(),0);
   std::vector<int> indices(candidates.size(),0);
   for (std::size_t i = 0; i < candidates.size(); ++i) {
     candidate_tiles[i] = candidate_to_index[candidates[i]];
   }
-  CUDA_CHECK(cudaMalloc((void**)&tmp_state.candidate_tiles, tmp_state.num_tiles * sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void**)&tmp_state.indices, tmp_state.num_tiles * sizeof(int)));
   CUDA_CHECK(cudaMemcpy(tmp_state.candidate_tiles, candidate_tiles.data(), tmp_state.num_tiles * sizeof(int), cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(tmp_state.indices, indices.data(), tmp_state.num_tiles * sizeof(int), cudaMemcpyHostToDevice));
 
@@ -96,7 +93,7 @@ int main() {
   BoardMatcher matcher = PolyominoToBoardMatcher(board);
   for (std::size_t i = 0; i < kMaxPolyominoSize; ++i) {  
     for (std::size_t j = 0; j < kPrecomputedPolyminosMatchSet[i].size(); ++j) {
-      auto result = find_matches_avx512(matcher, kPrecomputedPolyminosMatchSet[i][j]);
+      auto result = find_matches_avx(matcher, kPrecomputedPolyminosMatchSet[i][j]);
       if (result.size() > 0) {
         PolyominoIndex idx{i + 1, j};
         Tile tile{idx, std::move(result)};

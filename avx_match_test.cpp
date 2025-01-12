@@ -14,17 +14,18 @@ TEST(AVXTest, TestCppMatcher) {
   ASSERT_EQ(patterns.size(), 8u);
 }
 
-
-TEST(AVXTest, TestAvxMatcher) {
+TEST(AVXTest, TestAvx2Matcher) {
   auto polyomino_board = PrecomputedPolyminosSet<12>::polyminos()[0];
   auto polyomino_5 = PrecomputedPolyminosSet<5>::polyminos()[0];
 
   BoardMatcher board = PolyominoToBoardMatcher(polyomino_board);
   CandidateMatchBitmask candidate;
   PolyominoToMatchBitMask(polyomino_5, candidate);
-  std::vector<uint64_t> patterns = find_matches_avx512(board, candidate);
+  std::vector<uint64_t> patterns = find_matches_avx(board, candidate);
   ASSERT_EQ(patterns, FindMatchPatterns(polyomino_board, polyomino_5));
 }
+
+#ifdef USE_AVX512
 
 TEST(AVXTest, FindMatches_avx512_16x16_512) {
   int outer_idx = 0;
@@ -34,7 +35,7 @@ TEST(AVXTest, FindMatches_avx512_16x16_512) {
       BoardMatcher board = PolyominoToBoardMatcher(polyomino_board);
       CandidateMatchBitmask candidate;
       PolyominoToMatchBitMask(polyomino_5, candidate);
-      std::vector<uint64_t> results_a = find_matches_avx512(board, candidate);
+      std::vector<uint64_t> results_a = find_matches_avx(board, candidate);
       std::vector<uint64_t> results_b =
           FindMatchPatterns(polyomino_board, polyomino_5);
       SCOPED_TRACE("Outer index: " + std::to_string(outer_idx) +
@@ -45,3 +46,5 @@ TEST(AVXTest, FindMatches_avx512_16x16_512) {
     outer_idx++;
   }
 }
+
+#endif

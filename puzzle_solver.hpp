@@ -55,7 +55,7 @@ struct PuzzleParams {
       for (std::size_t j = 0; j < kPrecomputedPolyminosMatchSet[i].size();
            ++j) {
         auto result =
-            find_matches_avx512(matcher, kPrecomputedPolyminosMatchSet[i][j]);
+            find_matches_avx(matcher, kPrecomputedPolyminosMatchSet[i][j]);
         std::vector<BitMaskType> result_masks(result.begin(), result.end());
         if (result_masks.size() > 0) {
           PolyominoIndex idx{i + 1, j};

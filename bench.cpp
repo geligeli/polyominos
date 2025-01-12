@@ -38,7 +38,7 @@ template <int N> void BM_FindMatchPatternsAvx(benchmark::State &state) {
     PolyominoToMatchBitMask(p[i], candidates[i]);
   }
   for (auto _ : state) {
-    benchmark::DoNotOptimize(find_matches_avx512(board, candidates[i]));
+    benchmark::DoNotOptimize(find_matches_avx(board, candidates[i]));
     ++i;
     i = i % p.size();
   }
