@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "3ca7f68fc9f0feb08297d07c558dec66f8f2fd5ae99f9f919839ae8505c60a26",
+  "moduleFileHash": "c5b49c75ad93c24dcaefafd41d9c71e304f48c3074d94201c51d1ae35d170a13",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -23,13 +23,46 @@
       "repoName": "puzzle_solver",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
-      "extensionUsages": [],
+      "extensionUsages": [
+        {
+          "extensionBzlFile": "@rules_cuda//cuda:extensions.bzl",
+          "extensionName": "toolchain",
+          "usingModule": "<root>",
+          "location": {
+            "file": "@@//:MODULE.bazel",
+            "line": 43,
+            "column": 21
+          },
+          "imports": {
+            "local_cuda": "local_cuda"
+          },
+          "devImports": [],
+          "tags": [
+            {
+              "tagName": "local_toolchain",
+              "attributeValues": {
+                "name": "local_cuda",
+                "toolkit_path": ""
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 44,
+                "column": 21
+              }
+            }
+          ],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        }
+      ],
       "deps": {
         "google_benchmark": "google_benchmark@1.8.5",
         "platforms": "platforms@0.0.10",
         "abseil-cpp": "abseil-cpp@20240722.0",
         "hedron_compile_commands": "hedron_compile_commands@_",
         "com_google_protobuf": "protobuf@27.1",
+        "rules_cuda": "rules_cuda@0.2.3",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       }
@@ -265,6 +298,72 @@
           "strip_prefix": "protobuf-27.1",
           "remote_patches": {},
           "remote_patch_strip": 0
+        }
+      }
+    },
+    "rules_cuda@0.2.3": {
+      "name": "rules_cuda",
+      "version": "0.2.3",
+      "key": "rules_cuda@0.2.3",
+      "repoName": "rules_cuda",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [
+        "@local_cuda//toolchain:nvcc-local-toolchain",
+        "@local_cuda//toolchain/clang:clang-local-toolchain",
+        "@local_cuda//toolchain/disabled:disabled-local-toolchain"
+      ],
+      "extensionUsages": [
+        {
+          "extensionBzlFile": "@rules_cuda//cuda:extensions.bzl",
+          "extensionName": "toolchain",
+          "usingModule": "rules_cuda@0.2.3",
+          "location": {
+            "file": "https://bcr.bazel.build/modules/rules_cuda/0.2.3/MODULE.bazel",
+            "line": 10,
+            "column": 21
+          },
+          "imports": {
+            "local_cuda": "local_cuda"
+          },
+          "devImports": [],
+          "tags": [
+            {
+              "tagName": "local_toolchain",
+              "attributeValues": {
+                "name": "local_cuda",
+                "toolkit_path": ""
+              },
+              "devDependency": false,
+              "location": {
+                "file": "https://bcr.bazel.build/modules/rules_cuda/0.2.3/MODULE.bazel",
+                "line": 11,
+                "column": 21
+              }
+            }
+          ],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        }
+      ],
+      "deps": {
+        "bazel_skylib": "bazel_skylib@1.6.1",
+        "platforms": "platforms@0.0.10",
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://github.com/bazel-contrib/rules_cuda/releases/download/v0.2.3/rules_cuda-v0.2.3.tar.gz"
+          ],
+          "integrity": "sha256-ySszTXaaB82ZG3Z1svYHa4uVzTsosUJoovN5+LquWOA=",
+          "strip_prefix": "rules_cuda-v0.2.3",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/rules_cuda/0.2.3/patches/module_dot_bazel_version.patch": "sha256-QR4rOaFgoRJaMPjBVDFmmKQ+zjIOhma2fSrMhwhO3ko="
+          },
+          "remote_patch_strip": 1
         }
       }
     },
@@ -1558,6 +1657,30 @@
           }
         },
         "recordedRepoMappingEntries": []
+      }
+    },
+    "@@rules_cuda~//cuda:extensions.bzl%toolchain": {
+      "general": {
+        "bzlTransitiveDigest": "+DqRNhcLazCWBFHBsPZpI0J/kl3v4uov3dvbdBEpfXg=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "local_cuda": {
+            "bzlFile": "@@rules_cuda~//cuda/private:repositories.bzl",
+            "ruleClassName": "local_cuda",
+            "attributes": {
+              "toolkit_path": ""
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_cuda~",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
       }
     },
     "@@rules_foreign_cc~//foreign_cc:extensions.bzl%tools": {

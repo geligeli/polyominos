@@ -13,7 +13,11 @@
             ]
         }
     },
+    // Enable gpu support
+    "runArgs": [ "--gpus", "all" ],
     // For PERF
+
+    
     "privileged": true,
     // bind mounts for credentials
     "mounts": [

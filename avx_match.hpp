@@ -25,7 +25,7 @@ public:
     uint64_t tmp[4];
     _mm256_mask_compressstoreu_epi8(tmp, mask, match);
     uint64_t result{};
-    for (int c = 0; c < cnt; ++c) {
+    for (std::size_t c = 0; c < cnt; ++c) {
       result |= (_pext_u64(tmp[c], data[c]) << per_entry_popcnt[c]);
     }
     return result;
@@ -65,6 +65,7 @@ struct CandidateMatchBitmask {
 template <std::size_t N>
 void PolyominoToMatchBitMask(const Polyomino<N> &p,
                              CandidateMatchBitmask &matcher) {
+  // matcher = {};
   std::memset(&matcher, 0, sizeof(matcher));
   for (auto b : p.symmetries()) {
     b = b._align_to_positive_quadrant();

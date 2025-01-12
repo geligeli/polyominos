@@ -142,11 +142,13 @@ int _find_matches_avx512_16x16(__m256i const &board, __m256i const &candidate,
     // zmm1[511:256] is fit
     JA .end_write_results%=
     
-    JNZ .write_second_result%=  // jump if zf=0
+    // jump if zf is 0
+    JNZ .write_second_result%=
       VMOVDQU64 [%[result_ptr]] %{%[lower_4_bits_mask]}, zmm1
       ADD %[result_ptr], 32
     KTESTB %[lower_4_bits_mask], k1
-    JAE .end_write_results%=     // jump if cf=0
+    // jump if cf is 0
+    JAE .end_write_results%=
     .write_second_result%=: 
       VMOVDQU64 [%[result_ptr]-32] %{%[upper_4_bits_mask]}, zmm1
       ADD %[result_ptr], 32
@@ -207,7 +209,7 @@ BoardMatcher::BoardMatcher(__m256i board, std::pair<uint8_t, uint8_t> max_xy)
   std::memset(data, 0, cnt * 8);
   _mm256_mask_compressstoreu_epi8(data, mask, board);
   per_entry_popcnt[0] = 0;
-  for (int c = 1; c < cnt; ++c) {
+  for (std::size_t c = 1; c < cnt; ++c) {
     per_entry_popcnt[c] = std::popcount(data[c - 1]) + per_entry_popcnt[c - 1];
   }
 }

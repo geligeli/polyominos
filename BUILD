@@ -1,5 +1,6 @@
 load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_cuda//cuda:defs.bzl", "cuda_library")
 
 cc_library(
     name = "combinatorics",
@@ -189,5 +190,23 @@ cc_binary(
         ":helloworld_cc_grpc",
         # http_archive made this label available for binding
         "@com_github_grpc_grpc//:grpc++",
+    ],
+)
+
+cuda_library(
+    name = "kernel",
+    rdc = True,
+    srcs = ["kernel.cu"],
+    hdrs = ["kernel.h"],
+)
+
+cc_binary(
+    name = "cu_main",
+    srcs = ["cu_main.cpp"],
+    deps = [
+        ":kernel",
+        ":puzzle_solver",
+        ":polyominos",
+        ":avx_match",
     ],
 )

@@ -29,7 +29,7 @@ template <std::size_t N> struct Polyomino {
 
   inline constexpr Polyomino rotate_90() const noexcept {
     Polyomino result;
-    for (int i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       result.xy_cords[i] = {xy_cords[i].second, -xy_cords[i].first};
     }
     return result;
@@ -37,7 +37,7 @@ template <std::size_t N> struct Polyomino {
 
   inline constexpr Polyomino rotate_180() const noexcept {
     Polyomino result;
-    for (int i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       result.xy_cords[i] = {-xy_cords[i].first, -xy_cords[i].second};
     }
     return result;
@@ -45,7 +45,7 @@ template <std::size_t N> struct Polyomino {
 
   inline constexpr Polyomino rotate_270() const noexcept {
     Polyomino result;
-    for (int i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       result.xy_cords[i] = {-xy_cords[i].second, xy_cords[i].first};
     }
     return result;
@@ -53,7 +53,7 @@ template <std::size_t N> struct Polyomino {
 
   inline constexpr Polyomino flip_x() const noexcept {
     Polyomino result;
-    for (int i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       result.xy_cords[i] = {-xy_cords[i].first, xy_cords[i].second};
     }
     return result;
@@ -61,7 +61,7 @@ template <std::size_t N> struct Polyomino {
 
   inline constexpr Polyomino flip_y() const noexcept {
     Polyomino result;
-    for (int i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       result.xy_cords[i] = {xy_cords[i].first, -xy_cords[i].second};
     }
     return result;
@@ -100,7 +100,7 @@ template <std::size_t N> struct Polyomino {
 
   inline constexpr Polyomino translate_xy(int8_t x, int8_t y) const noexcept {
     Polyomino result;
-    for (int i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       result.xy_cords[i] = {xy_cords[i].first + x, xy_cords[i].second + y};
     }
     return result;
@@ -109,7 +109,7 @@ template <std::size_t N> struct Polyomino {
   inline constexpr Polyomino _align_to_positive_quadrant() const noexcept {
     int8_t x_min = xy_cords[0].first;
     int8_t y_min = xy_cords[0].second;
-    for (int i = 1; i < N; ++i) {
+    for (std::size_t i = 1; i < N; ++i) {
       x_min = std::min(x_min, xy_cords[i].first);
       y_min = std::min(y_min, xy_cords[i].second);
     }
@@ -138,9 +138,9 @@ template <std::size_t N> struct Polyomino {
     return result;
   }
 
-  inline constexpr std::optional<int>
+  inline constexpr std::optional<std::size_t>
   find_coord(std::pair<int8_t, int8_t> coord) const noexcept {
-    for (int i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       if (xy_cords[i] == coord) {
         return i;
       }
@@ -156,7 +156,7 @@ template <std::size_t N> struct Polyomino {
   inline constexpr std::pair<int8_t, int8_t> max_xy() const noexcept {
     int8_t x_max = xy_cords[0].first;
     int8_t y_max = xy_cords[0].second;
-    for (int i = 1; i < N; ++i) {
+    for (std::size_t i = 1; i < N; ++i) {
       x_max = std::max(x_max, xy_cords[i].first);
       y_max = std::max(y_max, xy_cords[i].second);
     }
@@ -223,7 +223,7 @@ template <std::size_t N> struct Polyomino {
         std::pair<int8_t, int8_t>{-1, 0}, std::pair<int8_t, int8_t>{1, 0},
         std::pair<int8_t, int8_t>{0, -1}, std::pair<int8_t, int8_t>{0, 1}};
     std::array<std::pair<int8_t, int8_t>, N + 1> new_coords;
-    for (int i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       new_coords[i] = xy_cords[i];
     }
     std::array<std::pair<int8_t, int8_t>, 3 * N + 1> considered_candidates;

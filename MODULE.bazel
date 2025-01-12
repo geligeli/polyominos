@@ -28,3 +28,21 @@ git_override(
 )
 
 bazel_dep(name = "protobuf", version = "27.1", repo_name = "com_google_protobuf")
+
+
+bazel_dep(name = "rules_cuda", version = "0.2.3")
+
+# # pick a specific version (this is optional an can be skipped)
+# archive_override(
+#     module_name = "rules_cuda",
+#     integrity = "{SRI value}",  # see https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
+#     urls = "https://github.com/bazel-contrib/rules_cuda/archive/c92b334d769a07cd991b7675b2f6076b8b95cd3b28b14268a2f379f8baae58e0.tar.gz",
+#     strip_prefix = "rules_cuda-c92b334d769a07cd991b7675b2f6076b8b95cd3b28b14268a2f379f8baae58e0",
+# )
+
+cuda = use_extension("@rules_cuda//cuda:extensions.bzl", "toolchain")
+cuda.local_toolchain(
+    name = "local_cuda",
+    toolkit_path = "",
+)
+use_repo(cuda, "local_cuda")

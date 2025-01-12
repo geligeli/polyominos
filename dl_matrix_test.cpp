@@ -100,7 +100,8 @@ TEST(DLMatrix, SolveCoverProblem) {
       0b11,
   };
   std::vector<std::size_t> rows;
-  ASSERT_TRUE(SolveCoverProblem(v, rows));
+  DLMatrix dl_matrix(v);
+  ASSERT_TRUE(SolveCoverProblem(dl_matrix, rows));
   ASSERT_THAT(rows, testing::ElementsAre(1));
 }
 
@@ -110,7 +111,8 @@ TEST(DLMatrix, SolveCoverProblemNoSolution) {
       0b101,
   };
   std::vector<std::size_t> rows;
-  ASSERT_FALSE(SolveCoverProblem(v, rows));
+  DLMatrix dl_matrix(v);
+  ASSERT_FALSE(SolveCoverProblem(dl_matrix, rows));
   ASSERT_TRUE(rows.empty());
 }
 
@@ -119,7 +121,8 @@ TEST(DLMatrix, SolveCoverProblemTricky) {
       0b1001001, 0b1001000, 0b0001101, 0b0010110, 0b0110011, 0b0100001,
   };
   std::vector<std::size_t> rows;
-  ASSERT_TRUE(SolveCoverProblem(v, rows));
+  DLMatrix dl_matrix(v);
+  ASSERT_TRUE(SolveCoverProblem(dl_matrix, rows));
   ASSERT_THAT(rows, testing::UnorderedElementsAre(1,3,5));
 }
 

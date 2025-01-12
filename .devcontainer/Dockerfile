@@ -1,6 +1,5 @@
-FROM silkeh/clang:latest
-
 FROM nvidia/cuda:12.3.2-devel-ubuntu22.04 
+# FROM silkeh/clang:latest
 # 
 
 ARG uid=1000
@@ -60,6 +59,6 @@ RUN echo source ~/google-cloud-sdk/completion.bash.inc >> ~/.bashrc
 RUN echo source ~/google-cloud-sdk/path.bash.inc >> ~/.bashrc
 
 RUN echo "set disassembly-flavor intel" > ~/.gdbinit
-ENV CC=clang
-ENV CXX=clang++
+# ENV CC=clang
+# ENV CXX=clang++
 

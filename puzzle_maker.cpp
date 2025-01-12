@@ -98,10 +98,8 @@ int main() {
             partition_map[p]++;
           }
 
-          // using RangeType = SubSetsRange;
           using RangeType = MultiSetsRange;
           std::vector<RangeType> sequences;
-
 
           for (const auto [size, count] : partition_map) {
             uint64_t num_tiles =
@@ -121,7 +119,7 @@ int main() {
                 for (std::size_t i = 0; i < idx.size(); ++i) {
                   p[i] = PolyominoSubsetIndex{
                       static_cast<std::size_t>(partition[i]), idx[i]};
-                }                
+                }
 
                 if (!AcceptConfiguration(p)) {
                   return;
