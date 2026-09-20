@@ -68,12 +68,6 @@ build:dbg --copt=-O0 --copt=-g --copt=-fno-limit-debug-info --strip=never
 #
 # There is no msan config: MemorySanitizer needs a libc++ built with the same
 # instrumentation, which hermetic-llvm 0.8 does not provide.
-#
-# Known failures under asan, neither from the toolchain's libstdc++:
-# - puzzle_solver_test dies inside oneTBB's task_dispatcher, on a read of tbb's
-#   own thread_data that asan counts as asan-internal memory.
-# - combinatorics_test trips a libstdc++ assertion (on at -O0): DecreaseKSubsets
-#   reads indices[k], one past the end, on its first loop iteration.
 build:asan --platform_suffix=asan
 build:asan --strip=never
 build:asan --@llvm//config:asan=true

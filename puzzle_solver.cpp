@@ -17,7 +17,7 @@
 #include <optional>
 #include <vector>
 
-template <int N> struct PrecomputedPolyminosMatchSet {
+template <int N> struct PrecomputedPolyminosMatchSetN {
 
   // template <std::size_t BOARD_SIZE>
   // static const std::function<
@@ -63,21 +63,29 @@ namespace {
 template <typename T, T... ints>
 auto _MatchConstructor(std::integer_sequence<T, ints...> int_seq) {
     return std::array<std::vector<CandidateMatchBitmask>, int_seq.size()>{
-  {PrecomputedPolyminosMatchSet<ints+1>::matchers()...} };
+  {PrecomputedPolyminosMatchSetN<ints+1>::matchers()...} };
 };
 
 template <typename T, T... ints>
 auto _XyCordConstructor(std::integer_sequence<T, ints...> int_seq) {
     return std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, int_seq.size()>{
-  {PrecomputedPolyminosMatchSet<ints+1>::xy_cords_vector()...} };
+  {PrecomputedPolyminosMatchSetN<ints+1>::xy_cords_vector()...} };
 };
 }
 
-const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize>
-    kPrecomputedPolyminosMatchSet = _MatchConstructor(std::make_integer_sequence<int, kMaxPolyominoSize>{});
+const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize> &
+PrecomputedPolyminosMatchSet() {
+  static const auto val =
+      _MatchConstructor(std::make_integer_sequence<int, kMaxPolyominoSize>{});
+  return val;
+}
 
-const std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, kMaxPolyominoSize>
-    kPrecomputedPolyominosTypeErased = _XyCordConstructor(std::make_integer_sequence<int, kMaxPolyominoSize>{});
+const std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, kMaxPolyominoSize> &
+PrecomputedPolyominosTypeErased() {
+  static const auto val =
+      _XyCordConstructor(std::make_integer_sequence<int, kMaxPolyominoSize>{});
+  return val;
+}
 
 const std::array<std::string, 14> kColors = {
     "\033[31m0\033[0m", "\033[32m1\033[0m", "\033[33m2\033[0m",
@@ -138,7 +146,7 @@ const std::vector<std::pair<int8_t, int8_t>> &
 PuzzleParams::xy_coordinates(PolyominoSubsetIndex idx) const noexcept {
   const auto global_idx =
       possible_tiles_per_size[idx.N - 1][idx.index].polyomino_index;
-  return kPrecomputedPolyominosTypeErased[global_idx.N - 1][global_idx.index];
+  return PrecomputedPolyominosTypeErased()[global_idx.N - 1][global_idx.index];
 }
 
 PuzzleSolver::PuzzleSolver(const PuzzleParams &params) : params(params) {}

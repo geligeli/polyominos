@@ -61,7 +61,9 @@ void DecreaseKSubsets(std::vector<uint64_t> &indices) {
     --indices[k - 1];
     return;
   }
-  for (int i = 0; i < k - 1; ++i) {
+  // The last index is known to be 0 here, so start at the one before it
+  // (i = 0 would compare against indices[k], past the end).
+  for (int i = 1; i < k - 1; ++i) {
     if (indices[k - i - 1] > indices[k - i] + 1) {
       indices[k - i - 1]--;
       for (int j = k - i; j < k; ++j) {
@@ -197,7 +199,9 @@ void DecreaseKMultiSet(std::vector<uint64_t> &indices) {
     --indices[k - 1];
     return;
   }
-  for (int i = 0; i < k - 1; ++i) {
+  // The last index is known to be 0 here, so start at the one before it
+  // (i = 0 would compare against indices[k], past the end).
+  for (int i = 1; i < k - 1; ++i) {
     if (indices[k - i - 1] > indices[k - i]) {
       indices[k - i - 1]--;
       for (int j = k - i; j < k; ++j) {

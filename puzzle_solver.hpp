@@ -14,10 +14,13 @@
 #include <vector>
 
 constexpr std::size_t kMaxPolyominoSize = 6;
-extern const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize>
-    kPrecomputedPolyminosMatchSet;
-extern const std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, kMaxPolyominoSize>
-    kPrecomputedPolyominosTypeErased;
+// Computed on first use, not as globals: building them runs parallel
+// algorithms, and TBB must not be entered from a static initializer (its own
+// statics, the TLS key among them, may not have been constructed yet).
+const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize> &
+PrecomputedPolyminosMatchSet();
+const std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, kMaxPolyominoSize> &
+PrecomputedPolyominosTypeErased();
 extern const std::array<std::string, 14> kColors;
 
 struct SolutionStats {
@@ -52,10 +55,10 @@ struct PuzzleParams {
     BoardMatcher matcher = PolyominoToBoardMatcher(board);
     // avx512 matcher
     for (std::size_t i = 0; i < kMaxPolyominoSize; ++i) {
-      for (std::size_t j = 0; j < kPrecomputedPolyminosMatchSet[i].size();
+      for (std::size_t j = 0; j < PrecomputedPolyminosMatchSet()[i].size();
            ++j) {
         auto result =
-            find_matches_avx(matcher, kPrecomputedPolyminosMatchSet[i][j]);
+            find_matches_avx(matcher, PrecomputedPolyminosMatchSet()[i][j]);
         std::vector<BitMaskType> result_masks(result.begin(), result.end());
         if (result_masks.size() > 0) {
           PolyominoIndex idx{i + 1, j};
@@ -80,7 +83,7 @@ struct PuzzleParams {
   const std::vector<std::pair<int8_t, int8_t>> &xy_coordinates (PolyominoSubsetIndex idx) const noexcept;
 
   std::size_t N;
-  std::array<std::vector<Tile>, kPrecomputedPolyminosMatchSet.size()>
+  std::array<std::vector<Tile>, kMaxPolyominoSize>
       possible_tiles_per_size;
 };
 

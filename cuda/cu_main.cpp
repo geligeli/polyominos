@@ -78,12 +78,12 @@ int main() {
 
   auto board = CreateRectangle<5,4>();
 
-  std::array<std::vector<Tile>, std::size(kPrecomputedPolyminosMatchSet)> possible_tiles_per_size;
+  std::array<std::vector<Tile>, kMaxPolyominoSize> possible_tiles_per_size;
   BoardMatcher matcher = PolyominoToBoardMatcher(board);
   for (std::size_t i = 0; i < kMaxPolyominoSize; ++i) {
   // int i = 4;
-    for (std::size_t j = 0; j < kPrecomputedPolyminosMatchSet[i].size(); ++j) {
-      auto result = find_matches_avx(matcher, kPrecomputedPolyminosMatchSet[i][j]);
+    for (std::size_t j = 0; j < PrecomputedPolyminosMatchSet()[i].size(); ++j) {
+      auto result = find_matches_avx(matcher, PrecomputedPolyminosMatchSet()[i][j]);
       if (result.size() > 0) {
         PolyominoIndex idx{i + 1, j};
         Tile tile{idx, std::move(result)};
