@@ -1,48 +1,67 @@
-###############################################################################
-# Bazel now uses Bzlmod by default to manage external dependencies.
-# Please consider migrating your external dependencies from WORKSPACE to MODULE.bazel.
-#
-# For more details, please check https://github.com/bazelbuild/bazel/issues/18958
-###############################################################################
-
 module(
     name = "puzzle_solver",
     version = "0.0.1",
 )
 
-bazel_dep(name = "google_benchmark", version = "1.8.5")
-# bazel_dep(name = "googletest", version = "1.15.2")
-# bazel_dep(name = "re2", version = "2024-07-02.bcr.1")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "rules_shell", version = "0.7.1")
 
-bazel_dep(name = "platforms", version = "0.0.10")
-# bazel_dep(name = "abseil-cpp", version = "20240722", repo_name="com_google_absl")
-bazel_dep(name = "abseil-cpp", version = "20240722.0")
+# The C++ toolchain: hermetic-llvm (clang + compiler-rt, no sysroot; the C++
+# standard library is its libstdc++, selected by //platforms),
+# the same pinned compiler ../game-arena builds with. Nothing is taken from the
+# host, so every action can run on a bare RBE worker. It is also the CUDA
+# compiler: see rules_cuda below.
+bazel_dep(name = "llvm", version = "0.8.21")
+
+# From the glibc-static branch of the geligeli fork: v0.8.21 plus static glibc
+# and a static libstdc++ (upstream only has libstdc++ as a shared library,
+# which forces linkstatic = False on every cc_binary).
+git_override(
+    module_name = "llvm",
+    commit = "6f070847add9ac9bf0d19c96dee873e84f9594d9",
+    remote = "https://github.com/geligeli/hermetic-llvm.git",
+)
+
+register_toolchains("@llvm//toolchain:all")
+
+bazel_dep(name = "googletest", version = "1.17.0.bcr.1")
+bazel_dep(name = "google_benchmark", version = "1.9.4")
+bazel_dep(name = "protobuf", version = "33.0")
+bazel_dep(name = "grpc", version = "1.74.1")
+
+# The backend of libstdc++'s parallel algorithms (std::execution::par in
+# polyominos.hpp and puzzle_maker.cpp); it used to be the host's libtbb.
+bazel_dep(name = "onetbb", version = "2022.1.0")
+
+# CUDA, hermetically. The toolkit is not the machine's /usr/local/cuda but the
+# NVIDIA redistributables, downloaded per component and pinned by the hash of
+# the manifest that lists them. The compiler is not nvcc (which would shell out
+# to a host gcc) but the clang of the cc toolchain above, which has the NVPTX
+# backend built in; .bazelrc selects it with --@rules_cuda//cuda:compiler=clang
+# and CUDA_COMPILER_USE_CC_TOOLCHAIN. Of the toolkit, clang still uses the
+# headers, libdevice, and the ptxas and fatbinary binaries out of the nvcc
+# component.
+bazel_dep(name = "rules_cuda", version = "0.3.0")
+
+cuda = use_extension("@rules_cuda//cuda:extensions.bzl", "toolchain")
+cuda.redist_json(
+    name = "rules_cuda_redist_json",
+    components = [
+        "cccl",
+        "cudart",
+        "curand",
+        "nvcc",
+    ],
+    sha256 = "249e28a83008d711d5f72880541c8be6253f6d61608461de4fcb715554a6cf17",
+    version = "12.8.1",
+)
+cuda.toolkit(name = "cuda")  # attrs are populated from the redist_json
+use_repo(cuda, "cuda")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
     module_name = "hedron_compile_commands",
-    remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
     commit = "4f28899228fb3ad0126897876f147ca15026151e",
-    # Replace the commit hash (above) with the latest (https://github.com/hedronvision/bazel-compile-commands-extractor/commits/main).
-    # Even better, set up Renovate and let it do the work for you (see "Suggestion: Updates" in the README).
+    remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
 )
-
-bazel_dep(name = "protobuf", version = "27.1", repo_name = "com_google_protobuf")
-
-
-bazel_dep(name = "rules_cuda", version = "0.2.3")
-
-# # pick a specific version (this is optional an can be skipped)
-# archive_override(
-#     module_name = "rules_cuda",
-#     integrity = "{SRI value}",  # see https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
-#     urls = "https://github.com/bazel-contrib/rules_cuda/archive/c92b334d769a07cd991b7675b2f6076b8b95cd3b28b14268a2f379f8baae58e0.tar.gz",
-#     strip_prefix = "rules_cuda-c92b334d769a07cd991b7675b2f6076b8b95cd3b28b14268a2f379f8baae58e0",
-# )
-
-cuda = use_extension("@rules_cuda//cuda:extensions.bzl", "toolchain")
-cuda.local_toolchain(
-    name = "local_cuda",
-    toolkit_path = "",
-)
-use_repo(cuda, "local_cuda")

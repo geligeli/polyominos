@@ -1,23 +1,55 @@
 common --announce_rc
 
+# The C++ toolchain is the hermetic-llvm module in MODULE.bazel; bazel must not
+# autoconfigure one from the host as well. It would go unused, and it fails on
+# a machine (an RBE worker) that has no compiler installed.
+common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+# libstdc++ rather than the toolchain's default libc++: see //platforms.
+build --platforms=//platforms:linux_x86_64
+
+# CUDA is compiled by the same hermetic clang (it has the NVPTX backend), not
+# by nvcc, which needs a host gcc underneath it. The repo_env makes rules_cuda
+# take clang from the registered cc toolchain rather than look for one on PATH;
+# the toolkit itself is downloaded (see cuda.redist_json in MODULE.bazel).
+common --repo_env=CUDA_COMPILER_USE_CC_TOOLCHAIN=true
 build --flag_alias=enable_cuda=@rules_cuda//cuda:enable
 build --flag_alias=cuda_archs=@rules_cuda//cuda:archs
 build --flag_alias=cuda_compiler=@rules_cuda//cuda:compiler
 build --flag_alias=cuda_copts=@rules_cuda//cuda:copts
 build --flag_alias=cuda_runtime=@rules_cuda//cuda:runtime
-
 build --enable_cuda=True
+build --cuda_compiler=clang
+build --cuda_archs=compute_75:compute_75,sm_75
+# clang reads the toolkit version out of <cuda-path>/include/cuda.h to decide
+# which PTX assembly version to emit. The redistributables are split up, and
+# the --cuda-path rules_cuda passes (the nvcc component: ptxas, libdevice) is
+# not the one with cuda.h in it (cudart), so clang assumes the newest CUDA it
+# knows and emits assembly the 12.8 ptxas rejects. Pin it: PTX 8.7 is CUDA
+# 12.8. Keep in step with cuda.redist_json's version in MODULE.bazel.
+build --cuda_copts=--cuda-feature=+ptx87
 
 build --cxxopt=-std=c++20
-build --linkopt=-ltbb
-# build --enable_workspace
-build --copt=-march=native --copt=-O3 --copt=-DNDEBUG
-# --copt=-flto
-# build --disk_cache=path/to/build/cache
+build --host_cxxopt=-std=c++20
+# Not -march=native: what "native" means depends on which machine runs the
+# action, and under remote execution that is not this one. The default is the
+# AVX2 baseline, which the RBE workers can also run, so tests may execute
+# anywhere.
+build --copt=-march=x86-64-v3 --copt=-O3 --copt=-DNDEBUG
+
+# Zen 4: the workstation (7950X3D) and the c3d deploy target. Turns on the
+# AVX-512 paths in avx_match. Compiling still happens remotely, but the RBE
+# workers cannot execute the result, so tests are kept on this machine.
+build:znver4 --platform_suffix=znver4
+build:znver4 --copt=-march=znver4
+build:znver4 --strategy=TestRunner=local
+
+# Third-party code is not ours to fix: silence its warnings.
+build --per_file_copt='external/.*@-w'
+build --host_per_file_copt='external/.*@-w'
 
 # build:profile --copt=-masm=intel
 
-build:profile --copt=-march=native
+build:profile --config=znver4
 build:profile --copt=-O3
 build:profile --copt=-DNDEBUG
 build:profile --copt=-flto
@@ -30,40 +62,32 @@ build:profile --strip=never
 
 build:dbg --copt=-O0 --copt=-g --copt=-fno-limit-debug-info --strip=never
 
-# AddressSanitizer (ASan).
+# Sanitizers. The hermetic toolchain owns the instrumentation: each
+# --@llvm//config:<san> setting adds -fsanitize=<san> to every compile and link
+# in the target configuration and links the matching compiler-rt runtime.
+#
+# There is no msan config: MemorySanitizer needs a libc++ built with the same
+# instrumentation, which hermetic-llvm 0.8 does not provide.
+#
+# Known failures under asan, neither from the toolchain's libstdc++:
+# - puzzle_solver_test dies inside oneTBB's task_dispatcher, on a read of tbb's
+#   own thread_data that asan counts as asan-internal memory.
+# - combinatorics_test trips a libstdc++ assertion (on at -O0): DecreaseKSubsets
+#   reads indices[k], one past the end, on its first loop iteration.
+build:asan --platform_suffix=asan
 build:asan --strip=never
-build:asan --copt=-fsanitize=address
-build:asan --copt=-DADDRESS_SANITIZER
+build:asan --@llvm//config:asan=true
 build:asan --copt=-O0
 build:asan --copt=-g
-build:asan --copt=-fno-omit-frame-pointer
-build:asan --linkopt -fsanitize=address
 
-# MemorySanitizer (MSan).
-build:msan --strip=never
-build:msan --copt=-fsanitize=memory
-build:msan --copt=-DMEMORY_SANITIZER
-build:msan --copt=-O0
-build:msan --copt=-fsanitize-memory-track-origins
-build:msan --copt=-fsanitize-memory-use-after-dtor
-build:msan --copt=-fno-omit-frame-pointer
-build:msan --copt=-DGPR_NO_DIRECT_SYSCALLS
-build:msan --linkopt=-fsanitize=memory
-build:msan --action_env=MSAN_OPTIONS=poison_in_dtor=1
-
-# ThreadSanitizer (TSan).
+build:tsan --platform_suffix=tsan
 build:tsan --strip=never
-build:tsan --copt=-fsanitize=thread
-build:tsan --copt=-DTHREAD_SANITIZER
-build:tsan --copt=-fno-omit-frame-pointer
-build:tsan --copt=-DGPR_NO_DIRECT_SYSCALLS
-build:tsan --linkopt=-fsanitize=thread
+build:tsan --@llvm//config:tsan=true
 
-# UndefinedBehaviorSanitizer (UBSan).
+build:ubsan --platform_suffix=ubsan
 build:ubsan --strip=never
-build:ubsan --copt=-fsanitize=undefined
-build:ubsan --copt=-DUNDEFINED_BEHAVIOR_SANITIZER
-build:ubsan --copt=-fno-omit-frame-pointer
-build:ubsan --copt=-DNDEBUG
+build:ubsan --@llvm//config:ubsan=true
 build:ubsan --copt=-fno-sanitize=vptr
-build:ubsan --linkopt=-fsanitize=undefined
+
+# Machine-local overrides, uncommitted.
+try-import %workspace%/.bazelrc.local

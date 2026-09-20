@@ -218,37 +218,34 @@ int _find_matches_avx2(__m256i const &board, __m256i const &candidate,
   int num_results = 0;
 
   constexpr auto shift_left = [](__m256i a) -> __m256i {
-    std::array<uint16_t, 16> working_set;   
+    std::array<uint16_t, 16> working_set;
     std::memcpy(&working_set, &a, sizeof(a));
-    for (int i=0; i<16; i++) {
-        working_set[i] <<=1;
+    for (int i = 0; i < 16; i++) {
+      working_set[i] <<= 1;
     }
     return std::bit_cast<__m256i>(working_set);
-};
+  };
 
-
-  constexpr auto shift_down = [](__m256i a) -> __m256i{
+  constexpr auto shift_down = [](__m256i a) -> __m256i {
     std::array<uint16_t, 16> src;
     std::array<uint16_t, 16> result;
-    result[0]=0;
+    result[0] = 0;
     std::memcpy(&src, &a, sizeof(a));
-    for (int i=1; i<16; ++i) {
-      result[i] = src[i-1];
+    for (int i = 1; i < 16; ++i) {
+      result[i] = src[i - 1];
     }
     return std::bit_cast<__m256i>(result);
   };
-  
+
   __m256i c = candidate;
   for (uint32_t i = 0; i < num_outer_loops; ++i) {
     __m256i c_inner = c;
     for (uint32_t j = 0; j < num_inner_loops; ++j) {
-      if ((c_inner[0] & ~board[0]) == 0 &&
-          (c_inner[1] & ~board[1]) == 0 &&
-          (c_inner[2] & ~board[2]) == 0 &&
-          (c_inner[3] & ~board[3]) == 0) {
+      if ((c_inner[0] & ~board[0]) == 0 && (c_inner[1] & ~board[1]) == 0 &&
+          (c_inner[2] & ~board[2]) == 0 && (c_inner[3] & ~board[3]) == 0) {
         results[num_results++] = c_inner;
       }
-      c_inner=shift_left(c_inner);
+      c_inner = shift_left(c_inner);
     }
     c = shift_down(c);
   }
@@ -259,23 +256,21 @@ int _find_matches_avx2(__m256i const &board, __m256i const &candidate,
 
 #endif
 
-std::vector<uint64_t>
-find_matches_avx(BoardMatcher const &board,
-                    CandidateMatchBitmask const &candidate) {
+std::vector<uint64_t> find_matches_avx(BoardMatcher const &board,
+                                       CandidateMatchBitmask const &candidate) {
   auto board_max_xy = board.max_xy();
   std::vector<uint64_t> results;
   for (int i = 0; i < candidate.cnt; ++i) {
     __m256i tmp[256];
-
 #ifdef USE_AVX512
     auto num_matches =
         _find_matches_avx512_16x16(board.board(), candidate.bitmasks[i],
                                    board_max_xy, candidate.max_xy[i], tmp);
 #else
-    auto num_matches =_find_matches_avx2(board.board(), candidate.bitmasks[i],
-                                   board_max_xy, candidate.max_xy[i], tmp);
+    auto num_matches =
+        _find_matches_avx2(board.board(), candidate.bitmasks[i], board_max_xy,
+                           candidate.max_xy[i], tmp);
 #endif
-
     for (int j = 0; j < num_matches; ++j) {
       results.push_back(board.compress(tmp[j]));
     }
@@ -284,7 +279,6 @@ find_matches_avx(BoardMatcher const &board,
   results.erase(std::unique(results.begin(), results.end()), results.end());
   return results;
 }
-
 
 BoardMatcher::BoardMatcher(__m256i board, std::pair<uint8_t, uint8_t> max_xy)
     : m_board(board), m_max_xy(max_xy) {
@@ -313,7 +307,7 @@ BoardMatcher::BoardMatcher(__m256i board, std::pair<uint8_t, uint8_t> max_xy)
   std::memset(data, 0, cnt * 8);
   _mask_compressstoreu_epi8(data, mask, board);
 #endif
-  
+
   per_entry_popcnt[0] = 0;
   for (std::size_t c = 1; c < cnt; ++c) {
     per_entry_popcnt[c] = std::popcount(data[c - 1]) + per_entry_popcnt[c - 1];

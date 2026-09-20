@@ -1,6 +1,7 @@
 #include "dl_matrix.hpp"
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <bitset>
 #include <chrono>
 #include <cstddef>

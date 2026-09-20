@@ -75,8 +75,7 @@
         "--background-index",
         "--compile-commands-dir=${workspaceFolder}",
         "--header-insertion=iwyu",
-        // "-std=c++20",
-        // "--query-driver=**",
+        "-j=28"
     ],
     "C_Cpp.default.compilerPath": "/usr/bin/clang++",
     "C_Cpp.default.cppStandard": "c++20",

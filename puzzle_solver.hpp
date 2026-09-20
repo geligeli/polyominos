@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t kMaxPolyominoSize = 9;
+constexpr std::size_t kMaxPolyominoSize = 6;
 extern const std::array<std::vector<CandidateMatchBitmask>, kMaxPolyominoSize>
     kPrecomputedPolyminosMatchSet;
 extern const std::array<std::vector<std::vector<std::pair<int8_t, int8_t>>>, kMaxPolyominoSize>
@@ -86,7 +86,7 @@ struct PuzzleParams {
 
 class PuzzleSolver {
 public:
-  enum class Algoritm { DLX, BF };
+  enum class Algoritm { DLX = 1, BF = 2 };
   PuzzleSolver(const PuzzleParams &params);
 
   bool Solve(const std::vector<PolyominoSubsetIndex> &candidate_tiles,

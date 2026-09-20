@@ -1,6 +1,10 @@
-load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
-load("@rules_cuda//cuda:defs.bzl", "cuda_library")
+load("@grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 cc_library(
     name = "combinatorics",
@@ -14,7 +18,7 @@ cc_test(
     srcs = ["combinatorics_test.cpp"],
     deps = [
         ":combinatorics",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -33,9 +37,13 @@ cc_library(
 cc_library(
     name = "polyominos",
     hdrs = ["polyominos.hpp"],
+    visibility = ["//visibility:public"],
     deps = [
         ":loggers",
         ":partition_function",
+        # The backend of libstdc++'s std::execution::par: <execution> uses it
+        # if <tbb/tbb.h> can be included, and runs serially otherwise.
+        "@onetbb//:tbb",
     ],
 )
 
@@ -56,7 +64,7 @@ cc_test(
     ],
     deps = [
         ":dl_matrix",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -68,6 +76,7 @@ cc_library(
     hdrs = [
         "puzzle_solver.hpp",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":avx_match",
         ":dl_matrix",
@@ -82,7 +91,7 @@ cc_test(
     ],
     deps = [
         ":puzzle_solver",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -121,6 +130,7 @@ cc_library(
         "avx_match.hpp",
     ],
     copts = ["-masm=intel"],
+    visibility = ["//visibility:public"],
     deps = [
         ":polyominos",
     ],
@@ -134,7 +144,7 @@ cc_test(
     deps = [
         ":avx_match",
         ":polyominos",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -157,13 +167,6 @@ sh_binary(
         ":puzzle_maker",
     ],
 )
-
-# load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_compile")
-# load("@rules_proto//proto:defs.bzl", "proto_library")
-# load("@protobuf//bazel:proto_library.bzl", "proto_library")
-
-# load("@com_github_grpc_grpc//bazel:grpc_build_system.bzl", "grpc_proto_library")
-# load("@grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 
 proto_library(
     name = "helloworld_proto",
@@ -188,25 +191,6 @@ cc_binary(
     defines = ["BAZEL_BUILD"],
     deps = [
         ":helloworld_cc_grpc",
-        # http_archive made this label available for binding
-        "@com_github_grpc_grpc//:grpc++",
-    ],
-)
-
-cuda_library(
-    name = "kernel",
-    rdc = True,
-    srcs = ["kernel.cu"],
-    hdrs = ["kernel.h"],
-)
-
-cc_binary(
-    name = "cu_main",
-    srcs = ["cu_main.cpp"],
-    deps = [
-        ":kernel",
-        ":puzzle_solver",
-        ":polyominos",
-        ":avx_match",
+        "@grpc//:grpc++",
     ],
 )

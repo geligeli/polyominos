@@ -7,6 +7,7 @@
 #include <string>
 
 #include <immintrin.h>
+#include <type_traits>
 
 
 #ifdef __AVX512VL__
@@ -74,15 +75,16 @@ BoardMatcher PolyominoToBoardMatcher(const Polyomino<N> &p) {
 }
 
 struct CandidateMatchBitmask {
-  __m256i bitmasks[8];
-  std::pair<uint8_t, uint8_t> max_xy[8];
-  int cnt;
+  __m256i bitmasks[8]{};
+  std::pair<uint8_t, uint8_t> max_xy[8]{};
+  int cnt{};
 };
 
 template <std::size_t N>
 void PolyominoToMatchBitMask(const Polyomino<N> &p,
                              CandidateMatchBitmask &matcher) {
-  // matcher = {};
+  // static_assert(std::is_trivially_constructible<CandidateMatchBitmask>::value);
+  matcher = {};
   std::memset(&matcher, 0, sizeof(matcher));
   for (auto b : p.symmetries()) {
     b = b._align_to_positive_quadrant();

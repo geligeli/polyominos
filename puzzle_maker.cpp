@@ -27,7 +27,7 @@ inline bool AcceptPartition(const std::vector<int> &partition, int N) {
     return false;
   }
   // return std::count_if(partition.begin(), partition.end(), [](int i) { return i != 1; }) == 6;
-  // return (partition.size() <= 4);
+  return (partition.size() <= 5);
   return true;
 }
 
@@ -41,13 +41,13 @@ inline bool AcceptConfiguration(const std::vector<PolyominoSubsetIndex> &p) {
 }
 
 int main() {
-  constexpr int N = 17;
-  const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
+  // constexpr int N = 17;
+  // const auto &ps = PrecomputedPolyminosSet<N>::polyminos();
 
   // std::cout << sizeof(Polyomino<16>) << std::endl;
 
-  // constexpr int N = 30;
-  // std::array ps = {RemoveOne(CreateRectangle<6, 5>(), 1)};
+  constexpr int N = 20;
+  std::array ps = {CreateRectangle<5, 4>()};
   // // std::array ps = {CreateRectangle<6, 5>()};
   // static int N = ps[0].size;
 

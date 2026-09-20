@@ -37,6 +37,8 @@ RUN cd gdb-15.2 && \
      make -C gdb install && \
     cd ../.. && \
     rm -rf gdb-15.2
+
+RUN apt-get install -y nsight-compute-2024.3.2 nsight-systems-2024.5.1 libxkbfile1
 RUN rm -rf /var/lib/apt/lists/*
 
 RUN chown root:root /usr/local/bin/bazel
