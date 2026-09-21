@@ -1,4 +1,5 @@
 load("@grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+load("@hedron_compile_commands//:refresh_compile_commands.bzl", "refresh_compile_commands")
 load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
 load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
@@ -193,4 +194,14 @@ cc_binary(
         ":helloworld_cc_grpc",
         "@grpc//:grpc++",
     ],
+)
+
+# bazel run //:refresh_compile_commands, for clangd. Not hedron's own
+# refresh_all: that also walks the toolchain, whose runtimes (libstdc++, glibc)
+# are built from source here and whose header-parsing actions the extractor
+# cannot digest. Only this repository's own sources are of interest anyway.
+refresh_compile_commands(
+    name = "refresh_compile_commands",
+    exclude_external_sources = True,
+    targets = "//...",
 )
